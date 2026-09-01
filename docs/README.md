@@ -6,6 +6,8 @@
 * **[themes.md](themes.md)** — the theme format: the semantic palette, what each
   colour is used for, what gets derived when you leave it out, the ANSI palette,
   geometry, fonts, icons and cursor.
+* **[deployment.md](deployment.md)** — ownership states, adoption and backups,
+  the adoption manifest, reload behaviour per application, and uninstall.
 * **[templates.md](templates.md)** — overriding a template, the context
   templates see, the full function set, and how generated output is validated.
 * **[architecture.md](architecture.md)** — how the four kinds of state fit

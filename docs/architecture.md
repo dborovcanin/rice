@@ -12,8 +12,12 @@ generated generation        generations/000042/        immutable, validated
         │
    current symlink          current -> generations/000042
         ▼
-application configuration   ~/.config/<app>/...        not wired up yet
+application configuration   ~/.config/<app>/...        symlinks, once adopted
 ```
+
+Because application paths point at `current/` rather than at a numbered
+generation, switching generations is one rename and touches nothing under
+`~/.config`.
 
 ## Why whole files
 
@@ -36,13 +40,21 @@ internal/config       source configuration, defaults, path resolution
 internal/render       template engine, function set, template context
 internal/adapter      per-application file declarations and output validation
 internal/generation   builder, manifest, generation store, current symlink
+internal/ownership    detection, deployment planning, adoption, backups, restore
+internal/reload       telling running applications to re-read their config
+internal/command      process execution, with a fake for tests
 internal/cli          command tree
 templates/, themes/   embedded defaults, overridable per file
 ```
 
 Dependencies run one way: `theme` and `config` know nothing about rendering,
 `render` knows nothing about generations, and `generation` knows nothing about
-the CLI.
+the CLI. `ownership` and `reload` depend on `adapter` for declarations only —
+an adapter still never deploys or reloads anything itself.
+
+Process execution is centralized in `internal/command` behind a `Runner`
+interface, so the reload path is tested against a fake and no test ever touches
+a real desktop session.
 
 ## Themes and configuration
 
@@ -117,25 +129,28 @@ Rollback moves one symlink. It rebuilds nothing, so it returns to the exact
 bytes a generation was committed with, and it records where it came from —
 rolling back twice returns to where you started.
 
+## Deployment
+
+Deployment is the only part of Rice that touches files it did not create, so it
+is deliberately conservative: `rice setup` is a dry run unless told otherwise,
+an existing file is copied into `backups/` before it is replaced, and the
+adoption is recorded so uninstall can reverse it exactly. `rice apply` repairs
+and reloads only what was already adopted; it never adopts on its own.
+
+[deployment.md](deployment.md) documents the ownership states and the
+guarantees in full.
+
 ## Not implemented yet
 
-Deployment into `~/.config/<app>` is deliberately absent. That step needs its
-own model, since it touches files Rice did not create:
-
-* **Ownership detection** — missing, regular file, Rice symlink, external
-  symlink, broken symlink.
-* **Adoption** — back up an existing file into `backups/<timestamp>/`, record it
-  in an adoption manifest, then install the symlink.
-* **Uninstall** — reverse the manifest exactly, restoring the original files.
-* **Reload** — use each adapter's reload mode after a switch.
 * **Preview** — a mutable `preview/` generation for live editing, committed or
   cancelled explicitly, so slider movements do not create hundreds of
   generations.
-* **Doctor** — dependency and ownership diagnostics.
-* **Desktop utilities** — `rice run volume|brightness|screenshot|...`.
-
-Until then Rice writes only inside its own root, and nothing outside
-`~/.config/rice` is touched.
+* **GTK / Qt** — toolkit integration. The theme already carries `[gtk]`, but no
+  template consumes it.
+* **Desktop utilities** — `rice run volume|brightness|screenshot|...`, so
+  bindings stop pointing at ad-hoc shell scripts.
+* **`rice theme from-image`** — deriving a palette from a wallpaper.
+* **GUI** — a theme editor over the same core.
 
 ## Invariants
 

@@ -22,12 +22,15 @@ application configuration: nothing depends on Rice being installed to work.
 
 ## Status
 
-Configuration generation is implemented: themes, templates, adapters, output
-validation, generations, `current` switching and rollback.
+Working: themes, templates, adapters, output validation, generations, `current`
+switching, rollback, ownership detection, adoption with backups, deployment by
+symlink, reload and uninstall.
 
-Deployment into `~/.config/<app>` — ownership detection, adoption, backups,
-application symlinks and reload — is not wired up yet, so **Rice currently
-writes only inside its own root**. Nothing outside `~/.config/rice` is touched.
+Not yet: live preview, GTK/Qt integration, the `rice run` desktop utilities, and
+a GUI.
+
+Nothing under `~/.config` is touched until you run `rice setup --adopt`, and
+that command is a dry run without the flag.
 
 ## Requirements
 
@@ -72,6 +75,8 @@ The binary is self-contained: templates and themes are embedded, so no
 make build
 ./build/rice init                  # write ~/.config/rice/config.toml
 ./build/rice apply                 # build a generation and make it current
+./build/rice setup                 # show what deploying would do — changes nothing
+./build/rice setup --adopt         # back up what exists, then link
 ```
 
 The result:
@@ -94,18 +99,28 @@ make demo                          # does exactly this in /tmp/rice-test
 ./build/rice --root /tmp/rice-test theme apply tokyo-night
 ```
 
-Since deployment is not implemented yet, use the generated files by hand for
-now, for example `include ~/.config/rice/current/sway/config` from your Sway
-config, or copy them out.
+Deployment replaces each application's config path with a symlink into
+`current/`, after copying anything that was there into `backups/`. Both the
+original location and its backup are recorded, so `rice uninstall` puts
+everything back. See [docs/deployment.md](docs/deployment.md) for exactly what
+is and is not touched.
 
 ## Commands
 
 ```bash
 rice init                        # write config.toml (--force to overwrite)
-rice apply                       # build a generation and switch to it
+rice apply                       # build a generation, switch, redeploy, reload
 rice apply -m "bigger gaps"      # record a description in the manifest
 rice apply --no-switch           # build without changing current
+rice apply --no-reload           # deploy without poking running applications
 rice apply --theme tokyo-night   # build with another theme, once
+
+rice status                      # theme, generations, ownership, dependencies
+rice setup                       # what deploying would do; changes nothing
+rice setup --adopt               # back up existing files, then link
+rice setup --adopt --force       # also take over symlinks Rice does not own
+rice uninstall                   # what restoring would do; changes nothing
+rice uninstall --yes             # remove links, restore the originals
 
 rice render                      # print every generated file to stdout
 rice render -c foot              # only one component
@@ -125,8 +140,10 @@ rice rollback                    # back to the previous generation
 rice rollback 39                 # or to a specific one
 ```
 
-Global flag: `--root DIR` overrides the Rice root, otherwise `$RICE_HOME`, then
-`$XDG_CONFIG_HOME/rice`, then `~/.config/rice`.
+Global flags: `--root DIR` overrides the Rice root, otherwise `$RICE_HOME`, then
+`$XDG_CONFIG_HOME/rice`, then `~/.config/rice`. `--config-dir DIR` overrides
+where applications keep their configuration, otherwise `$XDG_CONFIG_HOME`, then
+`~/.config` — useful for rehearsing deployment somewhere harmless.
 
 Every command carries its own help and examples:
 
@@ -156,6 +173,7 @@ Generations are immutable. Edits belong in `config.toml` or a theme, followed by
 
 | Page | Covers |
 | --- | --- |
+| [docs/deployment.md](docs/deployment.md) | Ownership, adoption, backups, reload, uninstall |
 | [docs/configuration.md](docs/configuration.md) | Every `config.toml` key |
 | [docs/themes.md](docs/themes.md) | The theme format and what gets derived |
 | [docs/templates.md](docs/templates.md) | Overriding templates, context, functions |
@@ -257,6 +275,18 @@ is never committed.
 Generations are assembled in a staging directory and renamed into place, and
 `current` is replaced by rename as well. A failed build leaves nothing behind,
 and switching generations is atomic.
+
+Where Rice touches files it did not create, it is deliberately conservative:
+
+* `rice setup` and `rice uninstall` are dry runs without `--adopt` / `--yes`.
+* An existing file is copied into `backups/` and flushed to disk **before** the
+  original is removed, so an interrupted adoption cannot lose it.
+* A symlink Rice does not own is refused; `--force` replaces the link and never
+  reads or modifies what it pointed at.
+* A directory standing where a file belongs is never touched, forced or not.
+* `rice apply` only redeploys paths already adopted. It never adopts on its own.
+* Uninstall skips any path that is no longer the symlink it installed.
+* Rice refuses to run as root, and never deletes a backup.
 
 ## Development
 

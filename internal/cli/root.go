@@ -15,8 +15,9 @@ func Execute() error {
 // PersistentPreRunE so --root applies to every subcommand.
 func NewRootCmd() *cobra.Command {
 	var (
-		root string
-		app  *App
+		root      string
+		configDir string
+		app       *App
 	)
 
 	cmd := &cobra.Command{
@@ -46,7 +47,7 @@ func NewRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			a, err := NewApp(root)
+			a, err := NewApp(root, configDir)
 			if err != nil {
 				return err
 			}
@@ -57,6 +58,8 @@ func NewRootCmd() *cobra.Command {
 
 	cmd.PersistentFlags().StringVar(&root, "root", "",
 		"Rice root directory (default $RICE_HOME or ~/.config/rice)")
+	cmd.PersistentFlags().StringVar(&configDir, "config-dir", "",
+		"where applications keep their configuration (default $XDG_CONFIG_HOME or ~/.config)")
 
 	get := func() *App { return app }
 
@@ -67,6 +70,9 @@ func NewRootCmd() *cobra.Command {
 		newRollbackCmd(get),
 		newThemeCmd(get),
 		newGenerationCmd(get),
+		newSetupCmd(get),
+		newStatusCmd(get),
+		newUninstallCmd(get),
 	)
 	return cmd
 }

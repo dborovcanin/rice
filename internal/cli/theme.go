@@ -166,7 +166,12 @@ func newThemeCurrentCmd(app func() *App) *cobra.Command {
 }
 
 func newThemeApplyCmd(app func() *App) *cobra.Command {
-	return &cobra.Command{
+	var (
+		description string
+		noReload    bool
+	)
+
+	cmd := &cobra.Command{
 		Use:   "apply <name>",
 		Short: "Set the theme in config.toml and build a generation",
 		Long: "Writes the theme name into config.toml, then builds a generation and\n" +
@@ -199,10 +204,14 @@ func newThemeApplyCmd(app func() *App) *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Theme set to %q\n", th.Name)
 
-			apply := newApplyCmd(func() *App { return a })
-			apply.SetOut(cmd.OutOrStdout())
-			apply.SetErr(cmd.ErrOrStderr())
-			return apply.RunE(apply, nil)
+			return runApply(cmd, a, applyOptions{
+				Description: description,
+				NoReload:    noReload,
+			})
 		},
 	}
+
+	cmd.Flags().StringVarP(&description, "message", "m", "", "description recorded in the manifest")
+	cmd.Flags().BoolVar(&noReload, "no-reload", false, "do not reload the applications afterwards")
+	return cmd
 }
