@@ -1,0 +1,73 @@
+name = "gruvbox-dark"
+description = "Warm retro palette with low-contrast surfaces."
+variant = "dark"
+
+[colors]
+background = "#282828"
+surface = "#32302f"
+surface_alt = "#3c3836"
+overlay = "#504945"
+
+foreground = "#ebdbb2"
+muted = "#928374"
+
+primary = "#d79921"
+secondary = "#83a598"
+accent = "#8ec07c"
+
+success = "#b8bb26"
+warning = "#fabd2f"
+error = "#fb4934"
+
+border = "#3c3836"
+border_focus = "#d79921"
+
+[terminal]
+foreground = "#ebdbb2"
+background = "#282828"
+regular = ["#282828", "#cc241d", "#98971a", "#d79921", "#458588", "#b16286", "#689d6a", "#a89984"]
+bright = ["#928374", "#fb4934", "#b8bb26", "#fabd2f", "#83a598", "#d3869b", "#8ec07c", "#ebdbb2"]
+selection_foreground = "#ebdbb2"
+selection_background = "#504945"
+cursor = "#d79921"
+url = "#83a598"
+
+[ui]
+radius = 5
+border_width = 3
+gaps_inner = 12
+gaps_outer = 0
+padding = 6
+horizontal_padding = 10
+opacity = 0.92
+blur_radius = 3
+blur_passes = 1
+blur_noise = 0.02
+shadow_blur = 0
+dim_inactive = 0.0
+
+[fonts]
+ui_family = "DejaVu Sans"
+ui_size = 11
+mono_family = "JetBrainsMonoNL Nerd Font"
+mono_size = 13
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Dark"
+paths = [
+  "/usr/share/icons/Papirus-Dark/16x16/status",
+  "/usr/share/icons/Papirus-Dark/16x16/devices",
+  "/usr/share/icons/hicolor/48x48/apps",
+]
+
+[cursor]
+theme = "BreezeX-Light"
+size = 28
+
+[gtk]
+theme = "Adwaita-dark"
+prefer_dark = true
+kvantum_theme = "KvGnomeDark"
+qt_style_override = "kvantum"

@@ -1,0 +1,73 @@
+name = "catppuccin-mocha"
+description = "Soft pastel dark theme."
+variant = "dark"
+
+[colors]
+background = "#1e1e2e"
+surface = "#313244"
+surface_alt = "#45475a"
+overlay = "#585b70"
+
+foreground = "#cdd6f4"
+muted = "#6c7086"
+
+primary = "#89b4fa"
+secondary = "#cba6f7"
+accent = "#94e2d5"
+
+success = "#a6e3a1"
+warning = "#f9e2af"
+error = "#f38ba8"
+
+border = "#45475a"
+border_focus = "#89b4fa"
+
+[terminal]
+foreground = "#cdd6f4"
+background = "#1e1e2e"
+regular = ["#45475a", "#f38ba8", "#a6e3a1", "#f9e2af", "#89b4fa", "#f5c2e7", "#94e2d5", "#bac2de"]
+bright = ["#585b70", "#f38ba8", "#a6e3a1", "#f9e2af", "#89b4fa", "#f5c2e7", "#94e2d5", "#a6adc8"]
+selection_foreground = "#cdd6f4"
+selection_background = "#45475a"
+cursor = "#f5e0dc"
+url = "#89b4fa"
+
+[ui]
+radius = 8
+border_width = 2
+gaps_inner = 8
+gaps_outer = 4
+padding = 6
+horizontal_padding = 12
+opacity = 0.95
+blur_radius = 5
+blur_passes = 2
+blur_noise = 0.02
+shadow_blur = 0
+dim_inactive = 0.0
+
+[fonts]
+ui_family = "Inter"
+ui_size = 11
+mono_family = "JetBrainsMono Nerd Font"
+mono_size = 12
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Dark"
+paths = [
+  "/usr/share/icons/Papirus-Dark/16x16/status",
+  "/usr/share/icons/Papirus-Dark/16x16/devices",
+  "/usr/share/icons/hicolor/48x48/apps",
+]
+
+[cursor]
+theme = "Bibata-Modern-Ice"
+size = 24
+
+[gtk]
+theme = "Adwaita-dark"
+prefer_dark = true
+kvantum_theme = "KvGnomeDark"
+qt_style_override = "kvantum"

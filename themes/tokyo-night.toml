@@ -1,0 +1,73 @@
+name = "tokyo-night"
+description = "Cool blue night palette with high-contrast accents."
+variant = "dark"
+
+[colors]
+background = "#1a1b26"
+surface = "#24283b"
+surface_alt = "#2f334d"
+overlay = "#414868"
+
+foreground = "#c0caf5"
+muted = "#565f89"
+
+primary = "#7aa2f7"
+secondary = "#bb9af7"
+accent = "#7dcfff"
+
+success = "#9ece6a"
+warning = "#e0af68"
+error = "#f7768e"
+
+border = "#2f334d"
+border_focus = "#7aa2f7"
+
+[terminal]
+foreground = "#c0caf5"
+background = "#1a1b26"
+regular = ["#15161e", "#f7768e", "#9ece6a", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", "#a9b1d6"]
+bright = ["#414868", "#ff7a93", "#b9f27c", "#ff9e64", "#7da6ff", "#bb9af7", "#0db9d7", "#c0caf5"]
+selection_foreground = "#c0caf5"
+selection_background = "#33467c"
+cursor = "#c0caf5"
+url = "#7dcfff"
+
+[ui]
+radius = 6
+border_width = 2
+gaps_inner = 10
+gaps_outer = 4
+padding = 6
+horizontal_padding = 12
+opacity = 0.94
+blur_radius = 4
+blur_passes = 1
+blur_noise = 0.02
+shadow_blur = 0
+dim_inactive = 0.0
+
+[fonts]
+ui_family = "Inter"
+ui_size = 11
+mono_family = "JetBrainsMono Nerd Font"
+mono_size = 12
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Dark"
+paths = [
+  "/usr/share/icons/Papirus-Dark/16x16/status",
+  "/usr/share/icons/Papirus-Dark/16x16/devices",
+  "/usr/share/icons/hicolor/48x48/apps",
+]
+
+[cursor]
+theme = "Bibata-Modern-Ice"
+size = 24
+
+[gtk]
+theme = "Adwaita-dark"
+prefer_dark = true
+kvantum_theme = "KvGnomeDark"
+qt_style_override = "kvantum"

@@ -1,0 +1,176 @@
+package cli
+
+import (
+	"fmt"
+	"text/tabwriter"
+
+	"github.com/spf13/cobra"
+)
+
+func newThemeCmd(app func() *App) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "theme",
+		Short: "Inspect and select themes",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
+	cmd.AddCommand(
+		newThemeListCmd(app),
+		newThemeShowCmd(app),
+		newThemeCurrentCmd(app),
+		newThemeApplyCmd(app),
+	)
+	return cmd
+}
+
+func newThemeListCmd(app func() *App) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List available themes",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			a := app()
+			entries, err := a.Themes.List()
+			if err != nil {
+				return err
+			}
+
+			active := ""
+			if cfg, err := a.Config(); err == nil {
+				active = cfg.Theme
+			}
+
+			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+			for _, e := range entries {
+				marker := " "
+				if e.Name == active {
+					marker = "*"
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\n", marker, e.Name, e.Source)
+			}
+			return w.Flush()
+		},
+	}
+}
+
+func newThemeShowCmd(app func() *App) *cobra.Command {
+	return &cobra.Command{
+		Use:   "show [name]",
+		Short: "Show a theme's resolved values",
+		Long: "Prints the theme after normalization, so derived colors and defaults\n" +
+			"are visible exactly as templates will see them.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			a := app()
+			cfg, err := a.Config()
+			if err != nil {
+				return err
+			}
+			name := ""
+			if len(args) == 1 {
+				name = args[0]
+			}
+			th, err := a.Theme(cfg, name)
+			if err != nil {
+				return err
+			}
+
+			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+			fmt.Fprintf(w, "name\t%s\n", th.Name)
+			fmt.Fprintf(w, "variant\t%s\n", th.Variant)
+			if th.Description != "" {
+				fmt.Fprintf(w, "description\t%s\n", th.Description)
+			}
+			fmt.Fprintln(w, "\ncolors\t")
+			colors := [][2]string{
+				{"background", th.Colors.Background.String()},
+				{"surface", th.Colors.Surface.String()},
+				{"surface_alt", th.Colors.SurfaceAlt.String()},
+				{"overlay", th.Colors.Overlay.String()},
+				{"foreground", th.Colors.Foreground.String()},
+				{"muted", th.Colors.Muted.String()},
+				{"primary", th.Colors.Primary.String()},
+				{"secondary", th.Colors.Secondary.String()},
+				{"accent", th.Colors.Accent.String()},
+				{"success", th.Colors.Success.String()},
+				{"warning", th.Colors.Warning.String()},
+				{"error", th.Colors.Error.String()},
+				{"border", th.Colors.Border.String()},
+				{"border_focus", th.Colors.BorderFocus.String()},
+			}
+			for _, c := range colors {
+				fmt.Fprintf(w, "  %s\t%s\n", c[0], c[1])
+			}
+
+			fmt.Fprintln(w, "\nui\t")
+			fmt.Fprintf(w, "  radius\t%d\n", th.UI.Radius)
+			fmt.Fprintf(w, "  border_width\t%d\n", th.UI.BorderWidth)
+			fmt.Fprintf(w, "  gaps\t%d inner / %d outer\n", th.UI.GapsInner, th.UI.GapsOuter)
+			fmt.Fprintf(w, "  opacity\t%.2f\n", th.UI.Opacity)
+			fmt.Fprintf(w, "  blur\t%d radius / %d passes\n", th.UI.BlurRadius, th.UI.BlurPasses)
+
+			fmt.Fprintln(w, "\nfonts\t")
+			fmt.Fprintf(w, "  ui\t%s %d\n", th.Fonts.UIFamily, th.Fonts.UISize)
+			fmt.Fprintf(w, "  mono\t%s %d\n", th.Fonts.MonoFamily, th.Fonts.MonoSize)
+			fmt.Fprintf(w, "  bar\t%s %d\n", th.Fonts.BarFont(), th.Fonts.BarFontSize())
+
+			fmt.Fprintln(w, "\nterminal\t")
+			for i := range th.Terminal.Regular {
+				fmt.Fprintf(w, "  %d\t%s\t%s\n", i, th.Terminal.Regular[i], th.Terminal.Bright[i])
+			}
+			return w.Flush()
+		},
+	}
+}
+
+func newThemeCurrentCmd(app func() *App) *cobra.Command {
+	return &cobra.Command{
+		Use:   "current",
+		Short: "Print the configured theme",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := app().Config()
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), cfg.Theme)
+			return nil
+		},
+	}
+}
+
+func newThemeApplyCmd(app func() *App) *cobra.Command {
+	return &cobra.Command{
+		Use:   "apply <name>",
+		Short: "Set the theme in config.toml and build a generation",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			a := app()
+			if err := a.requireConfig(); err != nil {
+				return err
+			}
+
+			cfg, err := a.Config()
+			if err != nil {
+				return err
+			}
+			th, err := a.Themes.Load(args[0])
+			if err != nil {
+				return err
+			}
+
+			cfg.Theme = th.Name
+			if err := writeConfig(a, cfg); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Theme set to %q\n", th.Name)
+
+			apply := newApplyCmd(func() *App { return a })
+			apply.SetOut(cmd.OutOrStdout())
+			apply.SetErr(cmd.ErrOrStderr())
+			return apply.RunE(apply, nil)
+		},
+	}
+}
