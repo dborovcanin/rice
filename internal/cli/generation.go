@@ -17,7 +17,13 @@ func newGenerationCmd(app func() *App) *cobra.Command {
 		Use:     "generation",
 		Aliases: []string{"gen"},
 		Short:   "Inspect configuration generations",
-		Args:    cobra.NoArgs,
+		Long: "A generation is a complete, immutable set of application configuration\n" +
+			"files plus the manifest describing how it was built. Applying a change\n" +
+			"creates a generation; switching between them is one symlink.",
+		Example: `  rice generation list
+  rice generation show 42
+  rice gen current`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
@@ -34,7 +40,11 @@ func newGenerationListCmd(app func() *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List generations, newest first",
-		Args:  cobra.NoArgs,
+		Long: "Lists every committed generation with its creation time, theme and\n" +
+			"description, marking which one is current and which one rollback would\n" +
+			"return to.",
+		Example: `  rice generation list`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()
 			list, err := a.Store.List()
@@ -74,7 +84,10 @@ func newGenerationCurrentCmd(app func() *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "current",
 		Short: "Print the current generation number",
-		Args:  cobra.NoArgs,
+		Long: "Prints the generation `current` points at, zero-padded. Fails when no\n" +
+			"generation has been applied yet.",
+		Example: `  rice generation current`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			n, err := app().Store.Current()
 			if errors.Is(err, generation.ErrNoGenerations) {
@@ -93,7 +106,15 @@ func newGenerationShowCmd(app func() *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show [number]",
 		Short: "Show a generation's manifest",
-		Args:  cobra.MaximumNArgs(1),
+		Long: "Prints what a generation was built from: theme, Rice version, parent\n" +
+			"generation, description, and every generated file with its content hash\n" +
+			"and reload mode. With no argument it shows the current generation.",
+		Example: `  # The current generation.
+  rice generation show
+
+  # A specific one.
+  rice generation show 42`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()
 

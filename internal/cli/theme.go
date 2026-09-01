@@ -11,7 +11,14 @@ func newThemeCmd(app func() *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "theme",
 		Short: "Inspect and select themes",
-		Args:  cobra.NoArgs,
+		Long: "A theme carries the whole appearance of the desktop: a semantic palette,\n" +
+			"a 16-color ANSI palette, geometry, fonts, icons and cursor.\n\n" +
+			"Themes live in ~/.config/rice/themes; a user theme shadows a bundled one\n" +
+			"of the same name.",
+		Example: `  rice theme list
+  rice theme show tokyo-night
+  rice theme apply tokyo-night`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
@@ -29,7 +36,10 @@ func newThemeListCmd(app func() *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List available themes",
-		Args:  cobra.NoArgs,
+		Long: "Lists every theme Rice can load, bundled and user-provided, marking the\n" +
+			"one config.toml selects with an asterisk.",
+		Example: `  rice theme list`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()
 			entries, err := a.Themes.List()
@@ -60,7 +70,17 @@ func newThemeShowCmd(app func() *App) *cobra.Command {
 		Use:   "show [name]",
 		Short: "Show a theme's resolved values",
 		Long: "Prints the theme after normalization, so derived colors and defaults\n" +
-			"are visible exactly as templates will see them.",
+			"are visible exactly as templates will see them.\n\n" +
+			"With no argument it shows the theme config.toml selects. A theme may also\n" +
+			"be named by path, which is useful while writing one.",
+		Example: `  # The active theme.
+  rice theme show
+
+  # Any other bundled or user theme.
+  rice theme show catppuccin-mocha
+
+  # A theme file that is not installed yet.
+  rice theme show ./my-theme.toml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()
@@ -129,7 +149,11 @@ func newThemeCurrentCmd(app func() *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "current",
 		Short: "Print the configured theme",
-		Args:  cobra.NoArgs,
+		Long: "Prints the theme name from config.toml, which is the theme the next\n" +
+			"apply will use. The theme a committed generation was built from is in its\n" +
+			"manifest instead, via `rice generation show`.",
+		Example: `  rice theme current`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := app().Config()
 			if err != nil {
@@ -145,7 +169,15 @@ func newThemeApplyCmd(app func() *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "apply <name>",
 		Short: "Set the theme in config.toml and build a generation",
-		Args:  cobra.ExactArgs(1),
+		Long: "Writes the theme name into config.toml, then builds a generation and\n" +
+			"switches to it. The change is persistent, unlike `rice apply --theme`.\n\n" +
+			"The theme is loaded and validated before config.toml is rewritten, so a\n" +
+			"bad name leaves the configuration untouched.",
+		Example: `  rice theme apply tokyo-night
+
+  # Change your mind.
+  rice rollback`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()
 			if err := a.requireConfig(); err != nil {

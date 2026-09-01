@@ -128,6 +128,15 @@ rice rollback 39                 # or to a specific one
 Global flag: `--root DIR` overrides the Rice root, otherwise `$RICE_HOME`, then
 `$XDG_CONFIG_HOME/rice`, then `~/.config/rice`.
 
+Every command carries its own help and examples:
+
+```bash
+rice --help
+rice apply --help
+rice theme show --help
+rice completion zsh > ~/.zfunc/_rice    # shell completions
+```
+
 ## Layout
 
 ```
@@ -142,6 +151,17 @@ Global flag: `--root DIR` overrides the Rice root, otherwise `$RICE_HOME`, then
 
 Generations are immutable. Edits belong in `config.toml` or a theme, followed by
 `rice apply`; anything written into a generation is lost on the next one.
+
+## Documentation
+
+| Page | Covers |
+| --- | --- |
+| [docs/configuration.md](docs/configuration.md) | Every `config.toml` key |
+| [docs/themes.md](docs/themes.md) | The theme format and what gets derived |
+| [docs/templates.md](docs/templates.md) | Overriding templates, context, functions |
+| [docs/architecture.md](docs/architecture.md) | How the pieces fit, and what is missing |
+
+The sections below are the short version.
 
 ## Themes vs configuration
 
@@ -169,7 +189,8 @@ mono_size = 12
 
 Everything omitted is derived, so those three colors already render a complete
 desktop: surfaces, borders, muted text and all sixteen ANSI slots are computed
-from them. Set them explicitly whenever you want exact control.
+from them. Set them explicitly whenever you want exact control —
+[docs/themes.md](docs/themes.md) lists every key and what it derives from.
 
 Drop the file in `~/.config/rice/themes/` and it appears in `rice theme list`; a
 user theme shadows a bundled theme of the same name.
@@ -179,7 +200,8 @@ Bundled: `gruvbox-dark`, `catppuccin-mocha`, `tokyo-night`.
 **Structure lives in `config.toml`**: which components to generate, outputs,
 workspaces, key bindings, binding modes, window rules, workspace assignments,
 startup programs, input settings, idle timeouts, and per-application options.
-`rice init` writes every default out explicitly, so the file documents itself.
+`rice init` writes every default out explicitly, so the file documents itself;
+[docs/configuration.md](docs/configuration.md) explains what each key means.
 
 A partial `config.toml` is merged onto the defaults — list only what you change:
 
@@ -222,6 +244,9 @@ Templates are `text/template` with a colour-aware function set: `bare`, `hex`,
 arithmetic, `json`, `font`, `indent`, `quote` and `default`. Rendering fails
 loudly on an unknown field rather than emitting an empty value.
 
+The full context and function reference is in
+[docs/templates.md](docs/templates.md).
+
 ## Safety
 
 Rice validates its own output before committing anything: brace balance for Sway
@@ -244,17 +269,8 @@ Golden files in `testdata/golden/` hold the full generated output for every
 bundled theme, so a template change shows up as a reviewable diff. Review it
 before committing.
 
-Package layout:
-
-```
-internal/theme        palette model, colour maths, parsing, validation
-internal/config       source configuration, defaults, paths
-internal/render       template engine and function set
-internal/adapter      per-application file declarations and output validation
-internal/generation   builder, manifest, generation store, current symlink
-internal/cli          command tree
-templates/, themes/   embedded defaults
-```
+Package layout and the reasoning behind it are in
+[docs/architecture.md](docs/architecture.md).
 
 ## License
 

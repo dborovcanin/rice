@@ -19,7 +19,22 @@ func newRenderCmd(app func() *App) *cobra.Command {
 		Use:   "render",
 		Short: "Render configuration without committing a generation",
 		Long: "Renders the configuration to stdout, or to a directory with --output.\n" +
-			"Nothing is committed and `current` is not touched.",
+			"Nothing is committed, no generation number is consumed and `current` is\n" +
+			"not touched.\n\n" +
+			"Use it to see what a theme or a template change would produce before\n" +
+			"running apply.",
+		Example: `  # Everything, to stdout.
+  rice render
+
+  # One component.
+  rice render -c waybar
+
+  # Preview a theme without changing config.toml.
+  rice render --theme tokyo-night -c sway
+
+  # Write the files somewhere to diff them.
+  rice render -o /tmp/preview
+  diff -r /tmp/preview ~/.config/rice/current`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()

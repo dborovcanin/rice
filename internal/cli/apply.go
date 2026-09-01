@@ -19,7 +19,22 @@ func newApplyCmd(app func() *App) *cobra.Command {
 		Use:   "apply",
 		Short: "Build a new generation and make it current",
 		Long: "Renders every enabled component, validates the output, commits it as an\n" +
-			"immutable generation and points `current` at it.",
+			"immutable generation and points `current` at it.\n\n" +
+			"The generation is assembled under a temporary name and renamed into place,\n" +
+			"so a template error or a failed validation leaves nothing behind and does\n" +
+			"not consume a generation number. Old generations beyond the retention\n" +
+			"limit are pruned afterwards, never including the current or previous one.",
+		Example: `  # Build from config.toml and switch to the result.
+  rice apply
+
+  # Record why the generation exists.
+  rice apply -m "wider gaps, softer blur"
+
+  # Build with another theme without editing config.toml.
+  rice apply --theme tokyo-night
+
+  # Build but keep the current generation active.
+  rice apply --no-switch`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()

@@ -15,7 +15,16 @@ func newRollbackCmd(app func() *App) *cobra.Command {
 		Use:   "rollback [generation]",
 		Short: "Switch back to the previous generation",
 		Long: "With no argument, switches to the generation that was current before the\n" +
-			"last switch. With a number, switches to that generation.",
+			"last switch. With a number, switches to that generation.\n\n" +
+			"Rollback only moves the `current` symlink; no configuration is rebuilt, so\n" +
+			"it returns to the exact bytes that generation was committed with. Rolling\n" +
+			"back twice returns to where you started.",
+		Example: `  # Undo the last switch.
+  rice rollback
+
+  # Go to a specific generation.
+  rice generation list
+  rice rollback 39`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()

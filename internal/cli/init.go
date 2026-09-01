@@ -21,7 +21,18 @@ func newInitCmd(app func() *App) *cobra.Command {
 		Use:   "init",
 		Short: "Create the Rice source configuration",
 		Long: "Writes a complete config.toml with every default spelled out, so the\n" +
-			"file itself documents what Rice can generate.",
+			"file itself documents what Rice can generate, and creates the directories\n" +
+			"Rice works in.\n\n" +
+			"Nothing outside the Rice root is touched, and an existing config.toml is\n" +
+			"never overwritten without --force.",
+		Example: `  # Create ~/.config/rice/config.toml with the defaults.
+  rice init
+
+  # Start from a particular theme.
+  rice init --theme catppuccin-mocha
+
+  # Replace an existing configuration.
+  rice init --force`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()

@@ -24,7 +24,25 @@ func NewRootCmd() *cobra.Command {
 		Short:   "Generate consistent configuration for a SwayFX desktop",
 		Version: rice.Version,
 		Long: "Rice generates complete configuration files for SwayFX, Waybar, Rofi,\n" +
-			"Foot, Dunst and swaylock from one theme and one source configuration.",
+			"Foot, Dunst and swaylock from one theme and one source configuration.\n\n" +
+			"Appearance lives in a theme; structure lives in config.toml. Each change\n" +
+			"produces an immutable generation, and `current` selects the active one.\n\n" +
+			"Rice currently writes only inside its own root. Deploying the generated\n" +
+			"files into ~/.config is not implemented yet.",
+		Example: `  # First run.
+  rice init
+  rice apply
+
+  # Switch theme.
+  rice theme list
+  rice theme apply tokyo-night
+
+  # Undo it.
+  rice rollback
+
+  # Try everything against a throwaway root.
+  rice --root /tmp/rice-test init
+  rice --root /tmp/rice-test apply`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
