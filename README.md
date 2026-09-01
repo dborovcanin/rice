@@ -22,81 +22,240 @@ application configuration: nothing depends on Rice being installed to work.
 
 ## Status
 
-Configuration generation is implemented: themes, templates, adapters,
+Configuration generation is implemented: themes, templates, adapters, output
 validation, generations, `current` switching and rollback.
 
-Deployment into `~/.config/<app>` (ownership detection, adoption, backups,
-symlinks, reload) is not wired up yet, so Rice currently writes only inside its
-own root.
+Deployment into `~/.config/<app>` — ownership detection, adoption, backups,
+application symlinks and reload — is not wired up yet, so **Rice currently
+writes only inside its own root**. Nothing outside `~/.config/rice` is touched.
 
-## Install
+## Requirements
+
+* Go 1.27 or newer to build.
+* At runtime, whichever of SwayFX, Waybar, Rofi, Foot, Dunst and swaylock you
+  enable. Rice generates configuration for them; it does not install them.
+
+## Build
 
 ```bash
-go build -o rice ./cmd/rice
+make build            # -> build/rice
+make install          # -> ~/.local/bin/rice   (override with PREFIX=/usr/local)
 ```
 
-## Use
+`make help` lists every target:
+
+| Target | Does |
+| --- | --- |
+| `build` | Compile the CLI into `build/` |
+| `release` | Cross-compile linux/amd64 and linux/arm64 plus `SHA256SUMS` |
+| `install` / `uninstall` | Install into `$(PREFIX)/bin`, default `~/.local` |
+| `test` / `test-race` | Run the test suite |
+| `cover` | Coverage profile into `build/coverage.out` |
+| `golden` | Accept intentional template changes |
+| `check` | `vet`, tests and a formatting check |
+| `fmt` / `vet` / `tidy` | Formatting, vetting, module pruning |
+| `demo` | Build a generation in `/tmp/rice-test` and list it |
+| `clean` | Remove `build/` |
+
+Without make:
 
 ```bash
-rice init                        # write ~/.config/rice/config.toml
-rice apply                       # build a generation and make it current
-rice render -c foot              # preview one component on stdout
-rice theme list                  # bundled and user themes
-rice theme show tokyo-night      # resolved values, including derived colors
-rice theme apply tokyo-night     # switch theme and build a generation
+go build -o build/rice ./cmd/rice
+```
+
+The binary is self-contained: templates and themes are embedded, so no
+`/usr/share/rice` is needed.
+
+## Quick start
+
+```bash
+make build
+./build/rice init                  # write ~/.config/rice/config.toml
+./build/rice apply                 # build a generation and make it current
+```
+
+The result:
+
+```
+~/.config/rice/current/
+├── dunst/dunstrc
+├── foot/foot.ini
+├── rofi/config.rasi
+├── sway/config
+├── swaylock/config
+└── waybar/config.jsonc, style.css
+```
+
+To try everything without touching your real configuration, point `--root`
+somewhere else — every command honours it:
+
+```bash
+make demo                          # does exactly this in /tmp/rice-test
+./build/rice --root /tmp/rice-test theme apply tokyo-night
+```
+
+Since deployment is not implemented yet, use the generated files by hand for
+now, for example `include ~/.config/rice/current/sway/config` from your Sway
+config, or copy them out.
+
+## Commands
+
+```bash
+rice init                        # write config.toml (--force to overwrite)
+rice apply                       # build a generation and switch to it
+rice apply -m "bigger gaps"      # record a description in the manifest
+rice apply --no-switch           # build without changing current
+rice apply --theme tokyo-night   # build with another theme, once
+
+rice render                      # print every generated file to stdout
+rice render -c foot              # only one component
+rice render -o /tmp/preview      # write files to a directory instead
+
+rice theme list                  # bundled and user themes, * marks the active one
+rice theme show                  # resolved values of the active theme
+rice theme show tokyo-night      # ... or of any other theme
+rice theme current
+rice theme apply tokyo-night     # set the theme in config.toml and build
+
 rice generation list             # history, newest first
+rice generation current
+rice generation show 42          # manifest: theme, parent, files, hashes
+
 rice rollback                    # back to the previous generation
+rice rollback 39                 # or to a specific one
 ```
 
-`--root` points the whole tree somewhere else, which is useful for trying
-changes without touching the real configuration:
-
-```bash
-rice --root /tmp/rice-test init
-rice --root /tmp/rice-test apply
-```
+Global flag: `--root DIR` overrides the Rice root, otherwise `$RICE_HOME`, then
+`$XDG_CONFIG_HOME/rice`, then `~/.config/rice`.
 
 ## Layout
 
 ```
 ~/.config/rice/
 ├── config.toml          source configuration (structure, not appearance)
-├── themes/              user themes, shadowing the bundled ones by name
+├── themes/              user themes, shadowing bundled ones by name
 ├── templates/           user template overrides, per file
 ├── generations/000042/  generated output plus manifest.toml
 ├── state/               previous-generation tracking
 └── current -> generations/000042
 ```
 
+Generations are immutable. Edits belong in `config.toml` or a theme, followed by
+`rice apply`; anything written into a generation is lost on the next one.
+
 ## Themes vs configuration
 
-Appearance lives in a theme; structure lives in `config.toml`. A theme carries a
-semantic palette (`background`, `surface`, `primary`, `error`, …), a 16-color
-ANSI palette, geometry, fonts, icons and cursor. Anything omitted is derived:
-a theme that sets only `background`, `foreground` and `primary` still renders a
-complete desktop.
+**Appearance lives in a theme.** A theme carries a semantic palette, a 16-color
+ANSI palette, geometry, fonts, icons and cursor:
 
-`config.toml` carries outputs, workspaces, key bindings, modes, window rules,
-startup programs, input settings and per-application behaviour. Every component
-also takes an `extra` string that is appended verbatim, for the cases a template
-does not model.
+```toml
+name = "my-dark"
+
+[colors]
+background = "#181825"
+foreground = "#cdd6f4"
+primary    = "#89b4fa"
+
+[ui]
+radius = 8
+gaps_inner = 8
+opacity = 0.94
+blur_radius = 4
+
+[fonts]
+mono_family = "JetBrainsMono Nerd Font"
+mono_size = 12
+```
+
+Everything omitted is derived, so those three colors already render a complete
+desktop: surfaces, borders, muted text and all sixteen ANSI slots are computed
+from them. Set them explicitly whenever you want exact control.
+
+Drop the file in `~/.config/rice/themes/` and it appears in `rice theme list`; a
+user theme shadows a bundled theme of the same name.
+
+Bundled: `gruvbox-dark`, `catppuccin-mocha`, `tokyo-night`.
+
+**Structure lives in `config.toml`**: which components to generate, outputs,
+workspaces, key bindings, binding modes, window rules, workspace assignments,
+startup programs, input settings, idle timeouts, and per-application options.
+`rice init` writes every default out explicitly, so the file documents itself.
+
+A partial `config.toml` is merged onto the defaults — list only what you change:
+
+```toml
+theme = "tokyo-night"
+
+[components]
+waybar = false          # Rice then generates Sway's own bar block instead
+
+[sway]
+mod = "Mod4"
+
+[[sway.bindings]]
+keys = "$mod+Return"
+command = "exec $terminal"
+```
+
+Every component also accepts an `extra` string, appended verbatim to the
+generated file, for anything the templates do not model:
+
+```toml
+[sway]
+extra = """
+for_window [app_id="mpv"] floating enable
+"""
+```
 
 ## Overriding a template
 
-Copy the built-in template into your own tree and edit it; Rice prefers the user
-copy for that one file and keeps using the built-ins for everything else.
+Copy a built-in template into `~/.config/rice/templates/` under the same
+relative path and edit it. Rice prefers your copy for that one file and keeps
+using the built-ins for everything else.
 
-```bash
-mkdir -p ~/.config/rice/templates/waybar
-rice render -c waybar -o /tmp/waybar-preview
 ```
+~/.config/rice/templates/waybar/style.css.tmpl
+```
+
+Templates are `text/template` with a colour-aware function set: `bare`, `hex`,
+`bareA`, `rgba`, `alpha`, `lighten`, `darken`, `mix`, `contrast`, plus
+arithmetic, `json`, `font`, `indent`, `quote` and `default`. Rendering fails
+loudly on an unknown field rather than emitting an empty value.
+
+## Safety
+
+Rice validates its own output before committing anything: brace balance for Sway
+and Rofi, key/value shape for Foot and Dunst, a real JSON parse for the Waybar
+bar configuration, option shape for swaylock. A generation that fails validation
+is never committed.
+
+Generations are assembled in a staging directory and renamed into place, and
+`current` is replaced by rename as well. A failed build leaves nothing behind,
+and switching generations is atomic.
 
 ## Development
 
 ```bash
-go test ./...          # unit, validation and golden tests
-go test . -update      # accept intentional template changes
+make check             # vet, tests, formatting
+make golden            # accept intentional template changes
 ```
 
 Golden files in `testdata/golden/` hold the full generated output for every
-bundled theme, so a template change shows up as a reviewable diff.
+bundled theme, so a template change shows up as a reviewable diff. Review it
+before committing.
+
+Package layout:
+
+```
+internal/theme        palette model, colour maths, parsing, validation
+internal/config       source configuration, defaults, paths
+internal/render       template engine and function set
+internal/adapter      per-application file declarations and output validation
+internal/generation   builder, manifest, generation store, current symlink
+internal/cli          command tree
+templates/, themes/   embedded defaults
+```
+
+## License
+
+See [LICENSE](LICENSE).
