@@ -7,7 +7,9 @@ style={{ . }}
 {{- else }}
 style=Fusion
 {{- end }}
-icon_theme={{ .Icons.Theme }}
+{{- with .Icons.Theme }}
+icon_theme={{ . }}
+{{- end }}
 standard_dialogs=default
 {{- if .Config.Qt.Kvantum }}
 custom_palette=false

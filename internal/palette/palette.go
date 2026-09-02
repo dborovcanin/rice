@@ -35,6 +35,11 @@ type Options struct {
 	// MinContrast is the lowest acceptable contrast ratio between foreground
 	// and background. Text has to be readable even when the image is not.
 	MinContrast float64
+	// Base supplies everything an image cannot: fonts, the icon and cursor
+	// themes, geometry and the toolkit hints. Without it a derived theme has
+	// a palette and nothing else, and Rice writes empty font and icon-theme
+	// settings out to the toolkits.
+	Base theme.Theme
 }
 
 // Defaults fills in the options a caller did not set.
@@ -95,11 +100,24 @@ func FromImage(img image.Image, opts Options) (theme.Theme, error) {
 		dark = meanLightness(clusters) < 0.5
 	}
 
-	th := theme.Theme{Name: opts.Name}
+	// Start from the base, so the result is the base theme wearing the image's
+	// colours rather than a palette with nothing around it.
+	th := opts.Base
+	th.Name = opts.Name
+	th.Description = ""
+	th.Colors = theme.Colors{}
+	th.Terminal = theme.Terminal{}
+
 	if dark {
 		th.Variant = "dark"
 	} else {
 		th.Variant = "light"
+	}
+	if th.Variant != opts.Base.Variant {
+		// A dark widget theme on a light palette is worse than none: let
+		// normalization pick one that matches.
+		th.GTK.Theme = ""
+		th.GTK.KvantumTheme = ""
 	}
 
 	background := pickBackground(clusters, dark)

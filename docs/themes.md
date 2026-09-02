@@ -209,6 +209,16 @@ The image supplies a background, a readable foreground and three accents.
 Everything this page describes as derived is left unset, so the result reads
 like a hand-written theme and keeps following its own semantic colours.
 
+An image says what colours to use and nothing else, so the fonts, the icon and
+cursor themes, the geometry and the toolkit hints are **inherited** from an
+existing theme — by default the one `config.toml` selects, or `--from <theme>`.
+The result is that theme wearing the image's colours. Without this a derived
+theme would have a palette and nothing else, and would name no font at all.
+
+The widget theme is the exception: if the derived variant differs from the base
+theme's, the GTK and Kvantum themes are dropped so normalization can pick ones
+that match. A dark widget theme on a light palette is worse than none.
+
 Three things are enforced rather than hoped for:
 
 * **Contrast.** The foreground is pushed until it clears a 7:1 ratio against
@@ -228,6 +238,7 @@ Three things are enforced rather than hoped for:
 | `--min-contrast` | Lowest acceptable foreground contrast ratio (default 7) |
 | `--save` | Write into the theme directory instead of printing |
 | `--force` | Overwrite an existing theme of the same name |
+| `--from` | Theme to inherit fonts, icons and geometry from |
 | `--apply` | Save it, select it in `config.toml` and build a generation |
 | `--wallpaper` | Point `sway.wallpaper` at the same image |
 

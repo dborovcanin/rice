@@ -3,8 +3,12 @@
 
 [Settings]
 gtk-theme-name={{ .GTK.Theme }}
-gtk-icon-theme-name={{ .Icons.Theme }}
-gtk-cursor-theme-name={{ .Cursor.Theme }}
+{{- with .Icons.Theme }}
+gtk-icon-theme-name={{ . }}
+{{- end }}
+{{- with .Cursor.Theme }}
+gtk-cursor-theme-name={{ . }}
+{{- end }}
 gtk-cursor-theme-size={{ .Cursor.Size }}
 gtk-font-name={{ font .Fonts.UIFamily .Fonts.UISize }}
 gtk-application-prefer-dark-theme={{ if .GTK.PreferDark }}1{{ else }}0{{ end }}

@@ -65,6 +65,24 @@ generated file carries its generation number in a header comment, so numbering
 the two sides differently reports a change in every file and buries the ones
 that matter. The number always changes; that is not news.
 
+## Found by running it end to end
+
+Two defects the unit tests could not see, both caught by walking a full user
+journey — init, apply, derive, preview, commit, roll back, check status:
+
+**A derived theme had a palette and nothing else.** An image cannot say what
+font to use, so `from-image` produced a theme naming no font, no icon theme and
+no cursor theme. It now inherits all of that from an existing theme — by
+default the configured one — so the result is that theme wearing the image's
+colours. The widget theme is dropped when the variant flips, because a dark GTK
+theme on a light palette is worse than none.
+
+**An empty value is not an absent one.** A theme naming no icon set wrote
+`gtk-icon-theme-name=` and `XCURSOR_THEME=` with nothing after them, and GTK
+and the systemd user manager both take that literally. The templates now omit
+the key instead. The golden files moved by one blank line, which is how little
+this affects a theme that does name them — and exactly why nothing caught it.
+
 ## What is left
 
 * Per-program **list** editing — outputs, workspaces, bindings and window rules

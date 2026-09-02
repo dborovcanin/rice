@@ -238,3 +238,80 @@ func TestFromReaderRejectsWhatItCannotDecode(t *testing.T) {
 		t.Error("a derived theme should say where it came from")
 	}
 }
+
+// An image says what colours to use and nothing else. Everything a wallpaper
+// cannot express has to come from somewhere, or Rice writes empty font and
+// icon-theme settings out to the toolkits.
+func TestDerivedThemeInheritsWhatAnImageCannotSay(t *testing.T) {
+	base := theme.Theme{
+		Variant: "dark",
+		Fonts:   theme.Fonts{UIFamily: "Inter", UISize: 11, MonoFamily: "Iosevka", MonoSize: 12},
+		Icons:   theme.Icons{Theme: "Papirus-Dark", Size: 32, Paths: []string{"/usr/share/icons"}},
+		Cursor:  theme.Cursor{Theme: "Bibata", Size: 24},
+		GTK:     theme.GTK{Theme: "Orchis-Dark", KvantumTheme: "KvMine"},
+		UI:      theme.UI{Radius: 12, GapsInner: 6},
+	}
+
+	img := draw(rgba(20, 24, 38), rgba(20, 24, 38), rgba(70, 130, 200))
+	th, err := palette.FromImage(img, palette.Options{Name: "inherited", Base: base})
+	if err != nil {
+		t.Fatalf("FromImage: %v", err)
+	}
+
+	if th.Fonts != base.Fonts {
+		t.Errorf("fonts = %+v, want them inherited", th.Fonts)
+	}
+	if th.Cursor != base.Cursor {
+		t.Errorf("cursor = %+v, want it inherited", th.Cursor)
+	}
+	if th.Icons.Theme != base.Icons.Theme || th.Icons.Size != base.Icons.Size {
+		t.Errorf("icons = %+v, want them inherited", th.Icons)
+	}
+	if th.UI != base.UI {
+		t.Errorf("geometry = %+v, want it inherited", th.UI)
+	}
+	if th.Name != "inherited" {
+		t.Errorf("name = %q", th.Name)
+	}
+
+	// The colours are the image's, not the base's.
+	if th.Colors.Background == base.Colors.Background {
+		t.Error("the palette should come from the image")
+	}
+}
+
+// A widget theme built for the other variant is worse than none: a dark GTK
+// theme on a light palette looks broken. Normalization can pick a matching
+// one, so the inherited value is cleared when the variant flips.
+func TestVariantFlipDropsTheInheritedWidgetTheme(t *testing.T) {
+	base := theme.Theme{
+		Variant: "dark",
+		GTK:     theme.GTK{Theme: "Orchis-Dark", KvantumTheme: "KvDark"},
+		Fonts:   theme.Fonts{UIFamily: "Inter"},
+	}
+
+	img := draw(rgba(20, 24, 38), rgba(20, 24, 38), rgba(70, 130, 200))
+
+	same, err := palette.FromImage(img, palette.Options{Base: base, Variant: "dark"})
+	if err != nil {
+		t.Fatalf("FromImage: %v", err)
+	}
+	if same.GTK.Theme != "Orchis-Dark" {
+		t.Errorf("gtk theme = %q, want it kept when the variant matches", same.GTK.Theme)
+	}
+
+	flipped, err := palette.FromImage(img, palette.Options{Base: base, Variant: "light"})
+	if err != nil {
+		t.Fatalf("FromImage: %v", err)
+	}
+	if flipped.GTK.Theme != "" {
+		t.Errorf("gtk theme = %q, want it dropped when the variant flips", flipped.GTK.Theme)
+	}
+	if flipped.GTK.KvantumTheme != "" {
+		t.Errorf("kvantum theme = %q, want it dropped too", flipped.GTK.KvantumTheme)
+	}
+	// The rest still comes across.
+	if flipped.Fonts.UIFamily != "Inter" {
+		t.Error("fonts should survive a variant flip")
+	}
+}

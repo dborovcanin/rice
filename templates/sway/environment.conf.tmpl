@@ -4,7 +4,9 @@
 # Read by the systemd user manager at login. Changes here need a fresh
 # session, not a Sway reload.
 
-XCURSOR_THEME={{ .Cursor.Theme }}
+{{- with .Cursor.Theme }}
+XCURSOR_THEME={{ . }}
+{{- end }}
 XCURSOR_SIZE={{ .Cursor.Size }}
 {{- if .Config.Components.Qt }}
 {{- with .Config.Qt.PlatformTheme }}

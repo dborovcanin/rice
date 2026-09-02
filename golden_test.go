@@ -273,3 +273,51 @@ func TestEnvironmentFileCarriesTheCursor(t *testing.T) {
 		t.Error("QT_QPA_PLATFORMTHEME survived turning the Qt component off")
 	}
 }
+
+// A theme that names no icon or cursor set must not produce settings with
+// nothing after the "=". An empty value is not the same as an absent one:
+// GTK and the session environment both take it literally.
+func TestSparseThemeWritesNoEmptyValues(t *testing.T) {
+	builder := newBuilder()
+
+	cfg := config.DefaultConfig()
+	cfg.Normalize()
+
+	th, err := theme.Parse([]byte(`
+name = "sparse"
+
+[colors]
+background = "#101010"
+foreground = "#e0e0e0"
+primary = "#5599ff"
+`), "sparse.toml")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if th.Icons.Theme != "" || th.Cursor.Theme != "" {
+		t.Fatal("this test needs a theme that names neither an icon nor a cursor theme")
+	}
+
+	dir := t.TempDir()
+	if _, err := builder.Build(dir, cfg, th, 1, generation.BuildOptions{}); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	for _, rel := range []string{
+		"gtk/settings.ini", "qt/qt5ct.conf", "sway/environment.conf",
+	} {
+		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "[") {
+				continue
+			}
+			if strings.HasSuffix(trimmed, "=") {
+				t.Errorf("%s:%d has an empty value: %q", rel, i+1, trimmed)
+			}
+		}
+	}
+}

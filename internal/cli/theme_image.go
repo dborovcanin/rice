@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 		force    bool
 		apply    bool
 		wall     bool
+		from     string
 	)
 
 	cmd := &cobra.Command{
@@ -38,6 +40,10 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 			"excuse for an unreadable terminal. Success, warning and error keep\n" +
 			"their own hues and borrow only the palette's saturation, because a\n" +
 			"green that is not green is worse than one that does not match.\n\n" +
+			"An image supplies colours and nothing else, so everything else — the\n" +
+			"fonts, the icon and cursor themes, the geometry, the toolkit hints — is\n" +
+			"inherited from an existing theme, by default the one config.toml\n" +
+			"selects. The result is that theme wearing the image's colours.\n\n" +
 			"The result is deterministic: the same image always gives the same\n" +
 			"theme. PNG and JPEG are supported.\n\n" +
 			"By default the theme is printed. Use --save to write it into the theme\n" +
@@ -61,6 +67,11 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 			a := app()
 			path := args[0]
 
+			cfg, err := a.Config()
+			if err != nil {
+				return err
+			}
+
 			if name == "" {
 				name = themeNameFromImage(path)
 			}
@@ -71,6 +82,13 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 			case "", "dark", "light":
 			default:
 				return fmt.Errorf("variant %q is not \"dark\" or \"light\"", variant)
+			}
+
+			// An image cannot say what font to use, so the rest comes from a
+			// theme that can.
+			base, err := a.Themes.LoadSource(cmp.Or(from, cfg.Theme))
+			if err != nil {
+				return fmt.Errorf("base theme: %w", err)
 			}
 
 			file, err := os.Open(path)
@@ -84,6 +102,7 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 				Variant:     variant,
 				Clusters:    clusters,
 				MinContrast: contrast,
+				Base:        base,
 			})
 			if err != nil {
 				return err
@@ -128,10 +147,6 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 				return nil
 			}
 
-			cfg, err := a.Config()
-			if err != nil {
-				return err
-			}
 			if wall {
 				// An absolute path, because config.toml is read from wherever
 				// Rice happens to be run.
@@ -170,6 +185,7 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing theme of the same name")
 	cmd.Flags().BoolVar(&apply, "apply", false, "save the theme, select it and build a generation")
 	cmd.Flags().BoolVar(&wall, "wallpaper", false, "point config.toml at this image as the wallpaper")
+	cmd.Flags().StringVar(&from, "from", "", "theme to inherit fonts, icons and geometry from (default: the configured theme)")
 	return cmd
 }
 
