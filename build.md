@@ -2056,7 +2056,7 @@ Fonts       ui_family / ui_size
             mono_family / mono_size
             bar_family / bar_size
 
-Sizing      radius, border_width, gaps_inner, gaps_outer,
+WM      radius, border_width, gaps_inner, gaps_outer,
             padding, horizontal_padding,
             opacity, blur_radius, blur_passes, dim_inactive
 
@@ -2676,8 +2676,8 @@ implement an optional extension:
 
 ```go
 type Configurable interface {
-	FilesFor(cfg config.Config) []File
-	ConfigPathsFor(cfg config.Config) []ManagedPath
+ FilesFor(cfg config.Config) []File
+ ConfigPathsFor(cfg config.Config) []ManagedPath
 }
 ```
 
@@ -3266,3 +3266,5 @@ Uninstall restores the original configuration.
 The implementation is a small Go application using normal filesystem semantics, standard configuration formats, standard Wayland tools, and minimal dependencies.
 
 This should remain the core architectural model unless implementation experience demonstrates a concrete reason to change it.
+
+Also, add a unified border/border-color/border-radius setting that propagates from WM to apps (e.g. rofi).
