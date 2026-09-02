@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/dborovcanin/rice/internal/adapter/sway"
 	"github.com/dborovcanin/rice/internal/adapter/swaylock"
 	"github.com/dborovcanin/rice/internal/adapter/waybar"
+	"github.com/dborovcanin/rice/internal/assets"
 	"github.com/dborovcanin/rice/internal/command"
 	"github.com/dborovcanin/rice/internal/config"
 	"github.com/dborovcanin/rice/internal/generation"
@@ -847,5 +849,78 @@ func TestNoFieldHasTwoHomes(t *testing.T) {
 
 	if len(session.EveryField()) != len(seen) {
 		t.Errorf("EveryField has %d, the tables have %d", len(session.EveryField()), len(seen))
+	}
+}
+
+// The launcher's font and icon settings override the theme for rofi alone.
+// Unset means "follow the theme", which has to be visible, undoable, and
+// pickable from the same lists as the global equivalents.
+func TestRofiOverridesFollowTheThemeUntilSet(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	cases := []struct{ key, want string }{
+		{"rofi.icon_theme", s.Theme().Icons.Theme},
+		{"rofi.font_family", s.Theme().Fonts.UIFamily},
+		{"rofi.font_size", strconv.Itoa(s.Theme().Fonts.UISize)},
+		{"rofi.icon_size", strconv.Itoa(s.Theme().Icons.Size)},
+	}
+
+	for _, c := range cases {
+		if !s.Inherited(c.key) {
+			t.Errorf("%s should start following the theme", c.key)
+		}
+		if got := s.Effective(c.key); got != c.want {
+			t.Errorf("%s shows %q, want the theme's %q", c.key, got, c.want)
+		}
+		// The stored value is still empty: showing the theme's value must not
+		// quietly make the override explicit.
+		if got, _ := s.Get(c.key); got != "" && got != "0" {
+			t.Errorf("%s stores %q, want it unset", c.key, got)
+		}
+	}
+
+	// Setting one takes it off the theme.
+	if err := s.Set("rofi.font_size", "22"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if s.Inherited("rofi.font_size") {
+		t.Error("a set override should no longer follow the theme")
+	}
+	if got := s.Effective("rofi.font_size"); got != "22" {
+		t.Errorf("effective = %q, want 22", got)
+	}
+
+	// And clearing puts it back, which is the only way to undo an override.
+	if err := s.Clear("rofi.font_size"); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if !s.Inherited("rofi.font_size") {
+		t.Error("clearing should return the override to the theme")
+	}
+	if got := s.Effective("rofi.font_size"); got != strconv.Itoa(s.Theme().Fonts.UISize) {
+		t.Errorf("effective = %q, want the theme's size again", got)
+	}
+}
+
+// These hold the same kind of value as the global font and icon-theme fields,
+// so they are picked from the same lists rather than typed.
+func TestRofiOverridesArePickable(t *testing.T) {
+	byKey := map[string]session.Field{}
+	for _, f := range session.ProgramFields("rofi") {
+		byKey[f.Key] = f
+	}
+
+	if got := byKey["rofi.font_family"]; got.Kind != session.KindFont {
+		t.Errorf("rofi.font_family kind = %v, want the font picker", got.Kind)
+	}
+	if got := byKey["rofi.icon_theme"]; !got.PicksAssets || got.Assets != assets.IconThemes {
+		t.Error("rofi.icon_theme should pick from the installed icon themes")
+	}
+
+	// Overrides live in config.toml, not the theme.
+	for _, key := range []string{"rofi.font_family", "rofi.icon_theme", "rofi.font_size", "rofi.icon_size"} {
+		if byKey[key].Store != session.StoreConfig {
+			t.Errorf("%s should save to config.toml", key)
+		}
 	}
 }

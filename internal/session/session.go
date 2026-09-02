@@ -227,6 +227,26 @@ func (s *Session) Get(key string) (string, error) {
 	return f.Display(s.resolved), nil
 }
 
+// Effective is what a field's value resolves to, which for an unset override
+// is what the theme gives rather than nothing.
+func (s *Session) Effective(key string) string {
+	f, ok := LookupField(key)
+	if !ok {
+		return ""
+	}
+	return f.Effective(s.resolved)
+}
+
+// Inherited reports whether a field is showing a value it does not hold: an
+// override left unset, following the theme.
+func (s *Session) Inherited(key string) bool {
+	f, ok := LookupField(key)
+	if !ok {
+		return false
+	}
+	return f.Inherited(s.Draft)
+}
+
 // Color returns a field's effective color, and false when it is not a color
 // field. An interface uses this to draw swatches.
 func (s *Session) Color(key string) (theme.Color, bool) {

@@ -298,7 +298,7 @@ func (m *model) measure(fields []session.Field) columns {
 		if n := len(f.Label); n > c.label {
 			c.label = n
 		}
-		if n := len(f.Display(m.sess.Resolved())); n > c.value {
+		if n := len(f.Effective(m.sess.Resolved())); n > c.value {
 			c.value = n
 		}
 	}
@@ -309,7 +309,7 @@ func (m *model) measure(fields []session.Field) columns {
 // swatch and a missing theme is marked in a global section and under an
 // application alike.
 func (m *model) fieldRow(f session.Field, layout columns, width int, cursor, focused bool) string {
-	value, _ := m.sess.Get(f.Key)
+	value := m.sess.Effective(f.Key)
 	if value == "" {
 		value = "—"
 	}
@@ -320,18 +320,24 @@ func (m *model) fieldRow(f session.Field, layout columns, width int, cursor, foc
 	}
 	row += pad(value, layout.value+2)
 
+	// One fixed-width cell, so the help text beside it lines up down the
+	// whole list however the markers vary.
+	const markerWidth = 15
+	marker, style := "", m.styles.derived
 	switch {
 	case m.sess.Missing(f.Key):
 		// A theme naming an icon set nobody has installed renders and deploys
 		// perfectly; the only symptom is that nothing changes.
-		row += m.styles.fail.Render("not installed ")
+		marker, style = "not installed", m.styles.fail
 	case m.sess.Overridden(f.Key):
-		row += m.styles.changed.Render("changed ")
+		marker, style = "changed", m.styles.changed
+	case m.sess.Inherited(f.Key):
+		// The value shown is the theme's, not this field's.
+		marker = "from theme"
 	case !f.Explicit(m.sess.Draft):
-		row += m.styles.derived.Render("derived ")
-	default:
-		row += pad("", 14)
+		marker = "derived"
 	}
+	row += style.Render(pad(marker, markerWidth))
 	if f.Help != "" {
 		row += m.styles.subtle.Render(f.Help)
 	}

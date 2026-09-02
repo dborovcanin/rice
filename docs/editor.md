@@ -123,6 +123,9 @@ Each field is marked:
 * **not installed** — the field names an icon, cursor, GTK or Kvantum theme
   that is not on this machine. Such a theme still renders and deploys
   perfectly; the only symptom is that nothing changes.
+* **from theme** — an application override left unset, so it follows the
+  global value. The row shows what the theme gives, not a blank. `c` puts a
+  set override back to following the theme.
 
 This matters when editing. If a theme leaves the terminal palette derived, then
 changing `colors.background` moves the terminal background too. If the theme
@@ -154,6 +157,18 @@ mono font, Waybar or Rofi for the UI font.
 
 Without fontconfig installed, the filter box becomes a plain text field and the
 family can still be typed.
+
+### Overrides
+
+An application setting that overrides a global one — the launcher's font, say —
+starts unset and follows the theme. It shows what the theme gives, marked
+**from theme**, so the value rofi will actually use is on screen rather than
+something you have to know. Setting it marks it **changed**; `c` puts it back
+to following the theme.
+
+These pick from the same lists as the global fields they override, because
+they hold the same kind of value: `rofi.font_family` offers the installed
+families, `rofi.icon_theme` the installed icon themes.
 
 ### Icon, cursor, GTK and Kvantum themes
 
@@ -212,7 +227,7 @@ where they are already comfortable to edit by hand.
 | --- | --- |
 | `sway` | None — the compositor is in the global SwayFX section. Preview and copy still work |
 | `waybar` | Position, layer, height, spacing |
-| `rofi` | Width, lines, columns, icons and icon theme, **font family and size**, **icon size**, drun label |
+| `rofi` | Width, lines, columns, icons, drun label, and overrides for icon theme, font family and size, and icon size |
 | `foot` | **The 16 ANSI colours**, selection, cursor and URL, then server mode, shell, TERM, scrollback, padding, cursor style and blink |
 
 The ANSI palette is under the terminal because that is what reads it. It is

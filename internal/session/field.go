@@ -124,6 +124,11 @@ type Field struct {
 	// Step is how far one nudge moves the value.
 	Step float64
 
+	// fallback says what an unset override resolves to. It is display only:
+	// editing still works on the stored value, so opening an unset override
+	// does not silently make it explicit.
+	fallback func(Draft) string
+
 	color func(*Draft) *theme.Color
 	num   func(*Draft) *int
 	frac  func(*Draft) *float64
@@ -146,6 +151,19 @@ func (f Field) Display(d Draft) string {
 		return *f.text(&d)
 	}
 }
+
+// Effective is what the value actually resolves to: the stored value, or what
+// the theme gives when an override is unset.
+func (f Field) Effective(d Draft) string {
+	if f.fallback != nil && !f.Explicit(d) {
+		return f.fallback(d)
+	}
+	return f.Display(d)
+}
+
+// Inherited reports whether the field is showing a value it does not hold —
+// an unset override following the theme.
+func (f Field) Inherited(d Draft) bool { return f.fallback != nil && !f.Explicit(d) }
 
 // Color returns the field's color, and false when the field is not a color.
 func (f Field) Color(d Draft) (theme.Color, bool) {

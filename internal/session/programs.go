@@ -1,6 +1,11 @@
 package session
 
-import "sync"
+import (
+	"strconv"
+	"sync"
+
+	"github.com/dborovcanin/rice/internal/assets"
+)
 
 // ProgramFields returns the settings that belong to one program rather than to
 // the theme. They live in config.toml, because they are structure rather than
@@ -86,6 +91,29 @@ func pText(key, label, help string, get func(*Draft) *string) Field {
 	return Field{Key: key, Label: label, Help: help, Kind: KindText, Store: StoreConfig, text: get}
 }
 
+// override marks a field whose unset value means "follow the theme", and says
+// what the theme would give. Without the fallback the row reads as blank, and
+// the launcher's actual font becomes something you have to know rather than
+// something you can see.
+func override(f Field, fallback func(Draft) string) Field {
+	f.Derives = true
+	f.fallback = fallback
+	return f
+}
+
+// pickFont turns a text field into one picked from the installed families.
+func pickFont(f Field) Field {
+	f.Kind = KindFont
+	return f
+}
+
+// pickIconTheme turns a text field into one picked from the installed icon
+// themes.
+func pickIconTheme(f Field) Field {
+	f.Assets, f.PicksAssets = assets.IconThemes, true
+	return f
+}
+
 func pChoice(key, label, help string, choices []string, get func(*Draft) *string) Field {
 	return Field{
 		Key: key, Label: label, Help: help, Kind: KindChoice,
@@ -118,14 +146,29 @@ func rofiFields() []Field {
 			func(d *Draft) *int { return &d.Config.Rofi.Columns }),
 		pBool("rofi.show_icons", "Show icons", "",
 			func(d *Draft) *bool { return &d.Config.Rofi.ShowIcons }),
-		pText("rofi.icon_theme", "Icon theme", "overrides the theme's icon set for the launcher only",
-			func(d *Draft) *string { return &d.Config.Rofi.IconTheme }),
-		pInt("rofi.font_size", "Font size", "0 uses the theme's interface size", 0, 96, 1,
+		// These four override the theme for the launcher alone. They are
+		// declared as overrides — unset means "follow the theme" — so the
+		// editor marks them derived, shows what the theme would give, and
+		// clears them back with `c`. They pick from the same lists as the
+		// global font and icon-theme fields, because they hold the same kind
+		// of value.
+		override(pickIconTheme(pText("rofi.icon_theme", "Icon theme",
+			"empty follows the theme's icon set",
+			func(d *Draft) *string { return &d.Config.Rofi.IconTheme })),
+			func(d Draft) string { return d.Theme.Icons.Theme }),
+
+		override(pickFont(pText("rofi.font_family", "Font family",
+			"empty follows the theme's interface font",
+			func(d *Draft) *string { return &d.Config.Rofi.FontFamily })),
+			func(d Draft) string { return d.Theme.Fonts.UIFamily }),
+
+		override(pInt("rofi.font_size", "Font size", "0 follows the theme's interface size", 0, 96, 1,
 			func(d *Draft) *int { return &d.Config.Rofi.FontSize }),
-		pText("rofi.font_family", "Font family", "empty uses the theme's interface font",
-			func(d *Draft) *string { return &d.Config.Rofi.FontFamily }),
-		pInt("rofi.icon_size", "Icon size", "0 uses the theme's icon size", 0, 256, 2,
+			func(d Draft) string { return strconv.Itoa(d.Theme.Fonts.UISize) }),
+
+		override(pInt("rofi.icon_size", "Icon size", "0 follows the theme's icon size", 0, 256, 2,
 			func(d *Draft) *int { return &d.Config.Rofi.IconSize }),
+			func(d Draft) string { return strconv.Itoa(d.Theme.Icons.Size) }),
 		pText("rofi.display_drun", "Drun label", "the prompt shown in application mode",
 			func(d *Draft) *string { return &d.Config.Rofi.DisplayDrun }),
 	}
