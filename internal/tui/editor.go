@@ -286,6 +286,10 @@ func (m *model) viewFields(width int) string {
 		row += pad(value, 12)
 
 		switch {
+		case m.sess.Missing(f.Key):
+			// A theme naming an icon set nobody has installed renders and
+			// deploys perfectly; the only symptom is that nothing changes.
+			row += m.styles.fail.Render("not installed")
 		case m.sess.Overridden(f.Key):
 			row += m.styles.changed.Render("changed")
 		case !f.Explicit(m.sess.Draft):

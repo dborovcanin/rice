@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -27,6 +28,8 @@ const (
 	// overlayConfirm asks a yes-or-no question before something irreversible
 	// or surprising.
 	overlayConfirm
+	// overlayView shows generated output, scrolled but not editable.
+	overlayView
 )
 
 // overlay is the modal state. Only one is ever open, so this is a single
@@ -51,6 +54,11 @@ type overlay struct {
 
 	// onConfirm runs when a confirm overlay is accepted.
 	onConfirm func(*model) tea.Cmd
+
+	// lines is the content of a view overlay, and offset is how far down it
+	// has been scrolled.
+	lines  []string
+	offset int
 }
 
 // entry is one row in a picker: what would be chosen, and a word about it.
@@ -181,6 +189,16 @@ func confirmOverlay(question string, onConfirm func(*model) tea.Cmd) overlay {
 	return overlay{kind: overlayConfirm, title: question, onConfirm: onConfirm}
 }
 
+// viewOverlayOf shows generated text. It is read-only on purpose: the way to
+// change generated output is to change what it was generated from.
+func viewOverlayOf(title, content string) overlay {
+	return overlay{
+		kind:  overlayView,
+		title: title,
+		lines: strings.Split(strings.TrimRight(content, "\n"), "\n"),
+	}
+}
+
 func (o overlay) help() string {
 	switch o.kind {
 	case overlayText:
@@ -191,6 +209,8 @@ func (o overlay) help() string {
 		return "enter save · esc cancel"
 	case overlayConfirm:
 		return "y confirm · n or esc cancel"
+	case overlayView:
+		return "↑↓ scroll · pgup/pgdn page · y copy · esc close"
 	}
 	return ""
 }
@@ -227,6 +247,9 @@ func (m *model) updateOverlay(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if msg.String() == "enter" {
 			return m, m.commitSave()
 		}
+
+	case overlayView:
+		return m.updateView(msg)
 
 	case overlayFonts, overlayAssets:
 		switch msg.String() {
@@ -271,6 +294,31 @@ func (m *model) commitText() tea.Cmd {
 	value, _ := m.sess.Get(f.Key)
 	m.setStatus(levelGood, "%s = %s", f.Key, value)
 	return nil
+}
+
+// updateView scrolls a read-only view. Typing does nothing here, so every key
+// that is not a movement is ignored rather than fed to an input.
+func (m *model) updateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	page := max(m.height-8, 1)
+	last := max(len(m.overlay.lines)-1, 0)
+
+	switch msg.String() {
+	case "up", "k":
+		m.overlay.offset = clampIndex(m.overlay.offset-1, len(m.overlay.lines))
+	case "down", "j":
+		m.overlay.offset = clampIndex(m.overlay.offset+1, len(m.overlay.lines))
+	case "pgup", "b":
+		m.overlay.offset = clampIndex(m.overlay.offset-page, len(m.overlay.lines))
+	case "pgdown", "f", " ":
+		m.overlay.offset = clampIndex(m.overlay.offset+page, len(m.overlay.lines))
+	case "home", "g":
+		m.overlay.offset = 0
+	case "end", "G":
+		m.overlay.offset = last
+	case "y":
+		return m, m.copySelected()
+	}
+	return m, nil
 }
 
 func (m *model) commitPick() tea.Cmd {
@@ -356,6 +404,17 @@ func (m *model) viewOverlay() string {
 					b.WriteString("  " + row + "\n")
 				}
 			}
+		}
+
+	case overlayView:
+		visible := max(m.height-8, 1)
+		end := min(o.offset+visible, len(o.lines))
+		for _, line := range o.lines[min(o.offset, len(o.lines)):end] {
+			b.WriteString(truncate(line, m.width-4) + "\n")
+		}
+		if len(o.lines) > visible {
+			b.WriteString(m.styles.subtle.Render(fmt.Sprintf(
+				"\nline %d-%d of %d", o.offset+1, end, len(o.lines))))
 		}
 
 	default:

@@ -663,3 +663,88 @@ func TestPickerFallsBackToTypingWhenNothingIsInstalled(t *testing.T) {
 		t.Errorf("icon theme = %q, want the typed value", got)
 	}
 }
+
+func TestProgramsViewGeneratedOutput(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter", "g")
+
+	for i, name := range m.programs {
+		if name == "foot" {
+			m.programCursor = i
+		}
+	}
+	press(t, m, "v")
+
+	if m.overlay.kind != overlayView {
+		t.Fatalf("v should open the generated output, got %v", m.overlay.kind)
+	}
+	if len(m.overlay.lines) == 0 {
+		t.Fatal("nothing was shown")
+	}
+
+	joined := strings.Join(m.overlay.lines, "\n")
+	if !strings.Contains(joined, "[colors]") {
+		t.Errorf("foot.ini does not look right:\n%s", joined)
+	}
+
+	// It scrolls, and stops at the ends rather than running off them.
+	press(t, m, "end")
+	if m.overlay.offset != len(m.overlay.lines)-1 {
+		t.Errorf("end left the offset at %d", m.overlay.offset)
+	}
+	press(t, m, "down", "down")
+	if m.overlay.offset != len(m.overlay.lines)-1 {
+		t.Error("scrolling past the end should stop at it")
+	}
+	press(t, m, "home")
+	if m.overlay.offset != 0 {
+		t.Errorf("home left the offset at %d", m.overlay.offset)
+	}
+	press(t, m, "up")
+	if m.overlay.offset != 0 {
+		t.Error("scrolling before the start should stop at it")
+	}
+
+	// The view renders at any size without panicking.
+	for _, h := range []int{40, 10, 6, 3} {
+		m.Update(tea.WindowSizeMsg{Width: 80, Height: h})
+		if m.View() == "" {
+			t.Errorf("the view rendered nothing at height %d", h)
+		}
+	}
+
+	press(t, m, "esc")
+	if m.overlay.kind != overlayNone {
+		t.Error("esc should close the view")
+	}
+}
+
+func TestNotInstalledThemesAreMarked(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", root)
+	t.Setenv("XDG_DATA_DIRS", filepath.Join(root, "empty"))
+	t.Setenv("HOME", root)
+
+	m, _, _ := newTestModel(t)
+
+	// The bundled theme names Papirus-Dark, which is not in this empty tree.
+	if !m.sess.Missing("icons.theme") {
+		t.Error("an absent icon theme should be reported as missing")
+	}
+	// A field that names nothing installable is never missing.
+	if m.sess.Missing("icons.size") {
+		t.Error("a size cannot be missing")
+	}
+
+	press(t, m, "enter")
+	for i, g := range session.Groups() {
+		if g == session.GroupIcons {
+			m.groupCursor = i
+		}
+	}
+	press(t, m, "tab")
+
+	if !strings.Contains(m.View(), "not installed") {
+		t.Error("the editor does not show that the icon theme is absent")
+	}
+}

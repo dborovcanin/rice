@@ -111,6 +111,8 @@ func (m *model) updatePrograms(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.previewSelected()
 	case "y":
 		return m, m.copySelected()
+	case "v":
+		return m, m.viewSelected()
 	case "x":
 		return m, m.stopSelected()
 	}
@@ -196,6 +198,25 @@ func (m *model) copySelected() tea.Cmd {
 		return nil
 	}
 	m.setStatus(levelGood, "%s configuration copied to the clipboard with %s", name, tool)
+	return nil
+}
+
+// viewSelected shows a component's generated configuration, which is the
+// question "what does this actually produce" answered without leaving the
+// editor or writing a file.
+func (m *model) viewSelected() tea.Cmd {
+	name, ok := m.selected()
+	if !ok {
+		return nil
+	}
+
+	text, err := m.sess.ComponentText(name)
+	if err != nil {
+		m.setStatus(levelBad, "%v", err)
+		return nil
+	}
+	m.overlay = viewOverlayOf(name+" — generated", text)
+	m.setStatus(levelInfo, "showing what %s would generate", name)
 	return nil
 }
 

@@ -426,7 +426,7 @@ func (m *model) helpLine() string {
 			"g programs · t themes · y copy theme · s save · a apply · q back"
 	case screenPrograms:
 		return "tab pane · ↑↓ move · enter edit · ←→ change · r reset · " +
-			"p preview · y copy · x stop · s save · esc back"
+			"p preview · v view · y copy · x stop · s save · esc back"
 	}
 	return ""
 }

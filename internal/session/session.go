@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/dborovcanin/rice/internal/adapter"
+	"github.com/dborovcanin/rice/internal/assets"
 	"github.com/dborovcanin/rice/internal/command"
 	"github.com/dborovcanin/rice/internal/config"
 	"github.com/dborovcanin/rice/internal/generation"
@@ -268,6 +269,24 @@ func (s *Session) Clear(key string) error {
 	f.Clear(&s.Draft)
 	s.refresh()
 	return nil
+}
+
+// Missing reports that a field names something that is supposed to be
+// installed on this machine and is not. An interface marks these: a theme
+// naming an icon set nobody has renders and deploys perfectly, and the only
+// symptom is that the icons never change.
+//
+// A field that names nothing installable is never missing.
+func (s *Session) Missing(key string) bool {
+	f, ok := LookupField(key)
+	if !ok || !f.PicksAssets {
+		return false
+	}
+	value := f.Display(s.resolved)
+	if strings.TrimSpace(value) == "" {
+		return false
+	}
+	return !assets.Installed(f.Assets, value)
 }
 
 // Explicit reports whether the draft spells a field out rather than deriving

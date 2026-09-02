@@ -81,6 +81,9 @@ Each field is marked:
   from something else. `terminal.background` with no value follows
   `colors.background`; `colors.surface` with no value is a lightened
   `colors.background`.
+* **not installed** — the field names an icon, cursor, GTK or Kvantum theme
+  that is not on this machine. Such a theme still renders and deploys
+  perfectly; the only symptom is that nothing changes.
 
 This matters when editing. If a theme leaves the terminal palette derived, then
 changing `colors.background` moves the terminal background too. If the theme
@@ -126,7 +129,8 @@ GTK theme a `gtk-3.0` or `gtk-4.0` directory. GTK's built-in themes — Adwaita
 and its variants — are offered even though they have no directory anywhere.
 
 If nothing matches, the filter box is the value, so a theme Rice cannot see can
-still be typed.
+still be typed — and it is then marked **not installed** in the field list, so
+a typo does not pass quietly.
 
 ---
 
@@ -140,6 +144,7 @@ between them.
 | `p` | Preview: render the draft and run the real program against it |
 | `y` | Copy that program's generated configuration to the clipboard |
 | `x` | Stop a running preview |
+| `v` | View what this program would generate, without writing it anywhere |
 | `enter` | Edit the setting; a switch or a fixed choice cycles in place |
 | `←` `→` | Change the setting without opening a prompt |
 | `r` | Reset the setting to what is in `config.toml` |
