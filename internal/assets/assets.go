@@ -80,8 +80,10 @@ func List(kind Kind) []string {
 		}
 	}
 
-	for _, b := range builtinGTKThemes {
-		if kind == GTKThemes {
+	if kind == GTKThemes {
+		// These have no directory anywhere, and Adwaita is the default on most
+		// systems, so leaving them out would hide the likeliest answer.
+		for _, b := range builtinGTKThemes {
 			seen[b] = true
 		}
 	}

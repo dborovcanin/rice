@@ -74,6 +74,11 @@ type Session struct {
 	sandboxRoot string
 	previews    []*Preview
 
+	// started records that SetBase has run at least once, which is what
+	// separates "no draft configuration yet" from "a draft configuration that
+	// happens to be empty".
+	started bool
+
 	// resolved is Draft after normalization. It is recomputed on every change
 	// rather than on every read, because an interface reads it constantly and
 	// changes it rarely.
@@ -128,10 +133,14 @@ func (s *Session) Config() config.Config { return s.Draft.Config }
 // The configuration is carried across: it is not part of the theme, and
 // choosing a different palette is no reason to forget a bar height.
 func (s *Session) SetBase(base theme.Theme) {
-	cfg := s.Draft.Config
-	if cfg.Components == (config.Components{}) {
-		cfg = s.Base.Config
+	// On the first call the draft has no configuration yet, so there is
+	// nothing to carry. Checking a flag rather than inspecting the
+	// configuration keeps a genuinely empty one from being mistaken for it.
+	cfg := s.Base.Config
+	if s.started {
+		cfg = s.Draft.Config
 	}
+	s.started = true
 
 	s.Base = Draft{Theme: cloneTheme(base), Config: s.Base.Config}
 	s.Draft = Draft{Theme: cloneTheme(base), Config: cfg}

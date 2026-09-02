@@ -571,3 +571,44 @@ func TestChangingThemeKeepsProgramSettings(t *testing.T) {
 		t.Error("the program change should still be pending")
 	}
 }
+
+// A configuration with nothing enabled is still a configuration: switching
+// theme must not mistake it for "no draft yet" and throw away program edits.
+func TestEmptyConfigurationSurvivesAThemeChange(t *testing.T) {
+	themesDir := t.TempDir()
+	store := theme.NewStore(themesDir, rice.Themes, "themes")
+	base, err := store.LoadSource("catppuccin-mocha")
+	if err != nil {
+		t.Fatalf("load theme: %v", err)
+	}
+
+	// No components at all, so Components is its zero value.
+	cfg := config.DefaultConfig()
+	cfg.Components = config.Components{}
+	cfg.Rofi.Lines = 9
+
+	s, err := session.New(base, session.Options{
+		Themes:    store,
+		Registry:  adapter.NewRegistry(),
+		Engine:    render.NewEngine("", rice.Templates, "templates"),
+		Runner:    command.NewFake(),
+		Config:    cfg,
+		ThemesDir: themesDir,
+		Version:   rice.Version,
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+
+	if err := s.Set("rofi.lines", "21"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if err := s.LoadBase("tokyo-night"); err != nil {
+		t.Fatalf("load base: %v", err)
+	}
+
+	if got, _ := s.Get("rofi.lines"); got != "21" {
+		t.Errorf("rofi.lines = %q, want the edit carried across", got)
+	}
+}
