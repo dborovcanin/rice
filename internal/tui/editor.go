@@ -176,9 +176,13 @@ func (m *model) editField() (tea.Model, tea.Cmd) {
 	}
 	current, _ := m.sess.Get(f.Key)
 
-	if f.Kind == session.KindFont {
+	switch {
+	case f.Kind == session.KindFont:
 		m.overlay = fontOverlay(f, current, m.catalog, m.catalogDone, m.catalogErr)
 		return m, m.loadFonts()
+	case f.PicksAssets:
+		m.overlay = assetOverlay(f, current)
+		return m, nil
 	}
 
 	m.overlay = textOverlay(f, current)

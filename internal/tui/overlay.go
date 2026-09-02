@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/dborovcanin/rice/internal/assets"
 	"github.com/dborovcanin/rice/internal/fonts"
 	"github.com/dborovcanin/rice/internal/session"
 )
@@ -19,6 +20,8 @@ const (
 	overlayText
 	// overlayFonts picks a font family from the installed families.
 	overlayFonts
+	// overlayAssets picks an installed icon, cursor, GTK or Kvantum theme.
+	overlayAssets
 	// overlaySave asks for a theme name, and optionally applies afterwards.
 	overlaySave
 	// overlayConfirm asks a yes-or-no question before something irreversible
@@ -36,18 +39,45 @@ type overlay struct {
 	// field is what overlayText and overlayFonts are editing.
 	field session.Field
 
-	// font picker state.
-	families []fonts.Family
-	cursor   int
-	mono     bool
-	loading  bool
-	loadErr  error
+	// picker state, shared by the font and installed-theme pickers.
+	entries []entry
+	all     []entry
+	cursor  int
+	mono    bool
+	loadErr error
 
 	// apply marks a save overlay that should build a generation afterwards.
 	apply bool
 
 	// onConfirm runs when a confirm overlay is accepted.
 	onConfirm func(*model) tea.Cmd
+}
+
+// entry is one row in a picker: what would be chosen, and a word about it.
+type entry struct {
+	name string
+	note string
+}
+
+// filterEntries keeps the rows matching a query, with prefix matches first, so
+// typing narrows a list the same way everywhere.
+func filterEntries(all []entry, query string) []entry {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return all
+	}
+
+	var prefix, contains []entry
+	for _, e := range all {
+		lower := strings.ToLower(e.name)
+		switch {
+		case strings.HasPrefix(lower, q):
+			prefix = append(prefix, e)
+		case strings.Contains(lower, q):
+			contains = append(contains, e)
+		}
+	}
+	return append(prefix, contains...)
 }
 
 func newInput(value, placeholder string, width int) textinput.Model {
@@ -77,18 +107,61 @@ func fontOverlay(f session.Field, current string, catalog fonts.Catalog, done bo
 		field:   f,
 		mono:    f.Mono,
 		input:   newInput("", "filter families", 40),
-		loading: !done,
 		loadErr: loadErr,
 	}
 	if done && loadErr == nil {
-		o.families = catalog.Filter("", f.Mono)
-		for i, fam := range o.families {
-			if fam.Name == current {
-				o.cursor = i
-			}
-		}
+		o.all = fontEntries(catalog.Filter("", f.Mono))
+		o.entries = o.all
+		o.selectCurrent(current)
 	}
 	return o
+}
+
+// assetOverlay picks an installed icon, cursor, GTK or Kvantum theme. Unlike
+// fonts, these are a directory scan, so the list is available immediately.
+func assetOverlay(f session.Field, current string) overlay {
+	names := assets.List(f.Assets)
+
+	o := overlay{
+		kind:  overlayAssets,
+		title: f.Key,
+		field: f,
+		input: newInput("", "filter "+f.Assets.String()+"s", 40),
+	}
+	for _, name := range names {
+		e := entry{name: name}
+		if assets.Builtin(f.Assets, name) {
+			e.note = "built in"
+		}
+		o.all = append(o.all, e)
+	}
+	o.entries = o.all
+	o.selectCurrent(current)
+	return o
+}
+
+// fontEntries turns font families into picker rows.
+func fontEntries(families []fonts.Family) []entry {
+	out := make([]entry, 0, len(families))
+	for _, f := range families {
+		e := entry{name: f.Name}
+		if f.Mono {
+			e.note = "mono"
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// selectCurrent puts the cursor on the value the field already holds, so
+// opening a picker shows where you are rather than the top of the list.
+func (o *overlay) selectCurrent(current string) {
+	for i, e := range o.entries {
+		if e.name == current {
+			o.cursor = i
+			return
+		}
+	}
 }
 
 func saveOverlay(suggested string, apply bool) overlay {
@@ -112,7 +185,7 @@ func (o overlay) help() string {
 	switch o.kind {
 	case overlayText:
 		return "enter accept · esc cancel"
-	case overlayFonts:
+	case overlayFonts, overlayAssets:
 		return "type to filter · ↑↓ move · enter choose · esc cancel"
 	case overlaySave:
 		return "enter save · esc cancel"
@@ -155,16 +228,16 @@ func (m *model) updateOverlay(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.commitSave()
 		}
 
-	case overlayFonts:
+	case overlayFonts, overlayAssets:
 		switch msg.String() {
 		case "up":
-			m.overlay.cursor = clampIndex(m.overlay.cursor-1, len(m.overlay.families))
+			m.overlay.cursor = clampIndex(m.overlay.cursor-1, len(m.overlay.entries))
 			return m, nil
 		case "down":
-			m.overlay.cursor = clampIndex(m.overlay.cursor+1, len(m.overlay.families))
+			m.overlay.cursor = clampIndex(m.overlay.cursor+1, len(m.overlay.entries))
 			return m, nil
 		case "enter":
-			return m, m.commitFont()
+			return m, m.commitPick()
 		}
 	}
 
@@ -172,10 +245,16 @@ func (m *model) updateOverlay(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.overlay.input, cmd = m.overlay.input.Update(msg)
 
-	if m.overlay.kind == overlayFonts && m.catalogDone && m.catalogErr == nil {
-		m.overlay.families = m.catalog.Filter(m.overlay.input.Value(), m.overlay.mono)
-		m.overlay.cursor = clampIndex(m.overlay.cursor, len(m.overlay.families))
+	switch m.overlay.kind {
+	case overlayFonts:
+		if m.catalogDone && m.catalogErr == nil {
+			m.overlay.all = fontEntries(m.catalog.Filter(m.overlay.input.Value(), m.overlay.mono))
+			m.overlay.entries = m.overlay.all
+		}
+	case overlayAssets:
+		m.overlay.entries = filterEntries(m.overlay.all, m.overlay.input.Value())
 	}
+	m.overlay.cursor = clampIndex(m.overlay.cursor, len(m.overlay.entries))
 	return m, cmd
 }
 
@@ -194,14 +273,15 @@ func (m *model) commitText() tea.Cmd {
 	return nil
 }
 
-func (m *model) commitFont() tea.Cmd {
+func (m *model) commitPick() tea.Cmd {
 	f := m.overlay.field
 
-	// With no catalog, the filter box doubles as a plain text entry, so a
-	// missing fontconfig does not make font fields uneditable.
+	// With nothing to pick from, the filter box doubles as a plain text entry:
+	// a missing fontconfig, or a theme Rice cannot see, must not make the
+	// field uneditable.
 	name := m.overlay.input.Value()
-	if len(m.overlay.families) > 0 {
-		name = m.overlay.families[clampIndex(m.overlay.cursor, len(m.overlay.families))].Name
+	if len(m.overlay.entries) > 0 {
+		name = m.overlay.entries[clampIndex(m.overlay.cursor, len(m.overlay.entries))].name
 	}
 
 	if err := m.sess.Set(f.Key, name); err != nil {
@@ -252,23 +332,23 @@ func (m *model) viewOverlay() string {
 	case overlayConfirm:
 		b.WriteString(m.styles.warn.Render("y / n"))
 
-	case overlayFonts:
+	case overlayFonts, overlayAssets:
 		b.WriteString(o.input.View() + "\n\n")
 		switch {
 		case o.loadErr != nil:
 			b.WriteString(m.styles.warn.Render(o.loadErr.Error()) + "\n")
-			b.WriteString(m.styles.subtle.Render("Type a family name and press enter."))
-		case !m.catalogDone:
+			b.WriteString(m.styles.subtle.Render("Type a name and press enter."))
+		case o.kind == overlayFonts && !m.catalogDone:
 			b.WriteString(m.styles.subtle.Render("reading installed fonts…"))
-		case len(o.families) == 0:
-			b.WriteString(m.styles.subtle.Render("no family matches; enter accepts what you typed"))
+		case len(o.entries) == 0:
+			b.WriteString(m.styles.subtle.Render("nothing matches; enter accepts what you typed"))
 		default:
-			visible, offset := m.window(len(o.families), o.cursor)
+			visible, offset := m.window(len(o.entries), o.cursor)
 			for i := offset; i < offset+visible; i++ {
-				fam := o.families[i]
-				row := fam.Name
-				if fam.Mono {
-					row += "  " + m.styles.subtle.Render("mono")
+				e := o.entries[i]
+				row := e.name
+				if e.note != "" {
+					row += "  " + m.styles.subtle.Render(e.note)
 				}
 				if i == o.cursor {
 					b.WriteString(m.styles.rowCursor.Render("▸ ") + m.styles.rowActive.Render(row) + "\n")

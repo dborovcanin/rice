@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/dborovcanin/rice/internal/assets"
 	"github.com/dborovcanin/rice/internal/theme"
 )
 
@@ -153,9 +154,13 @@ func sizingFields() []Field {
 }
 
 func iconFields() []Field {
+	// The theme fields that name something installed on the machine are
+	// pickable, for the same reason fonts are: nobody remembers whether the
+	// directory is called Papirus-Dark or papirus-dark.
 	return []Field{
 		{
 			Key: "icons.theme", Label: "Icon theme", Group: GroupIcons, Kind: KindText, Derives: true,
+			Assets: assets.IconThemes, PicksAssets: true,
 			text: func(d *Draft) *string { return &d.Theme.Icons.Theme },
 		},
 		{
@@ -165,7 +170,22 @@ func iconFields() []Field {
 		},
 		{
 			Key: "cursor.theme", Label: "Cursor theme", Group: GroupIcons, Kind: KindText, Derives: true,
+			Assets: assets.CursorThemes, PicksAssets: true,
 			text: func(d *Draft) *string { return &d.Theme.Cursor.Theme },
+		},
+		{
+			Key: "gtk.theme", Label: "GTK theme", Group: GroupIcons, Kind: KindText, Derives: true,
+			Assets: assets.GTKThemes, PicksAssets: true,
+			text: func(d *Draft) *string { return &d.Theme.GTK.Theme },
+		},
+		{
+			Key: "gtk.kvantum_theme", Label: "Kvantum theme", Group: GroupIcons, Kind: KindText, Derives: true,
+			Assets: assets.KvantumThemes, PicksAssets: true,
+			text: func(d *Draft) *string { return &d.Theme.GTK.KvantumTheme },
+		},
+		{
+			Key: "gtk.qt_style_override", Label: "Qt style", Group: GroupIcons, Kind: KindText, Derives: true,
+			text: func(d *Draft) *string { return &d.Theme.GTK.QtStyleOverride },
 		},
 		{
 			Key: "cursor.size", Label: "Cursor size", Group: GroupIcons, Kind: KindInt,

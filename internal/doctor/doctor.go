@@ -10,10 +10,10 @@ package doctor
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/dborovcanin/rice/internal/assets"
 	"github.com/dborovcanin/rice/internal/command"
 	"github.com/dborovcanin/rice/internal/config"
 	"github.com/dborovcanin/rice/internal/fonts"
@@ -79,33 +79,32 @@ func Assets(ctx context.Context, runner command.Runner, th theme.Theme, cfg conf
 	var checks []Check
 	checks = append(checks, fontChecks(ctx, runner, th)...)
 
-	checks = append(checks, dirCheck(
-		"icon theme", th.Icons.Theme,
-		iconDirs(), func(dir string) string { return filepath.Join(dir, th.Icons.Theme) },
+	checks = append(checks, installedCheck(
+		assets.IconThemes, th.Icons.Theme,
 		"icons fall back to whatever the toolkit finds",
 	))
 
-	checks = append(checks, dirCheck(
-		"cursor theme", th.Cursor.Theme,
-		cursorDirs(), func(dir string) string { return filepath.Join(dir, th.Cursor.Theme, "cursors") },
+	checks = append(checks, installedCheck(
+		assets.CursorThemes, th.Cursor.Theme,
 		"the pointer falls back to the default cursor",
 	))
 
 	if cfg.Components.GTK {
-		checks = append(checks, gtkThemeCheck(th.GTK.Theme))
+		checks = append(checks, installedCheck(
+			assets.GTKThemes, th.GTK.Theme,
+			"GTK applications fall back to Adwaita",
+		))
 	}
 
 	if cfg.Components.Qt && cfg.Qt.Kvantum {
-		name := th.GTK.KvantumTheme
-		if name == "" {
+		if th.GTK.KvantumTheme == "" {
 			checks = append(checks, Check{
 				Name: "kvantum theme", Value: "unset", Level: LevelWarn,
 				Detail: "the theme names no Kvantum theme, so the generated one is a guess",
 			})
 		} else {
-			checks = append(checks, dirCheck(
-				"kvantum theme", name,
-				kvantumDirs(), func(dir string) string { return filepath.Join(dir, name) },
+			checks = append(checks, installedCheck(
+				assets.KvantumThemes, th.GTK.KvantumTheme,
 				"Kvantum falls back to its default theme",
 			))
 		}
@@ -114,29 +113,28 @@ func Assets(ctx context.Context, runner command.Runner, th theme.Theme, cfg conf
 	return checks
 }
 
-// builtinGTKThemes ship inside GTK itself rather than as a directory under
-// share/themes, so looking for them on disk finds nothing even though they
-// work. Adwaita is the default on most systems, which would make the check
-// warn about the one theme most likely to be correct.
-var builtinGTKThemes = map[string]bool{
-	"adwaita":             true,
-	"adwaita-dark":        true,
-	"default":             true,
-	"emacs":               true,
-	"highcontrast":        true,
-	"highcontrastinverse": true,
-	"raleigh":             true,
-}
+// installedCheck reports whether a named theme exists on the machine.
+func installedCheck(kind assets.Kind, name, consequence string) Check {
+	check := Check{Name: kind.String(), Value: name}
 
-func gtkThemeCheck(name string) Check {
-	if builtinGTKThemes[strings.ToLower(strings.TrimSpace(name))] {
-		return Check{Name: "gtk theme", Value: name, Level: LevelOK, Detail: "built into GTK"}
+	switch {
+	case strings.TrimSpace(name) == "":
+		check.Value = "unset"
+		check.Level = LevelWarn
+		check.Detail = consequence
+	case assets.Builtin(kind, name):
+		// Adwaita ships inside GTK rather than as a directory, and is the
+		// default on most systems: a scan would flag the most likely correct
+		// answer.
+		check.Level = LevelOK
+		check.Detail = "built in"
+	case assets.Installed(kind, name):
+		check.Level = LevelOK
+	default:
+		check.Level = LevelWarn
+		check.Detail = "not found in " + strings.Join(assets.Roots(kind), ", ") + ": " + consequence
 	}
-	return dirCheck(
-		"gtk theme", name,
-		dataDirs("themes"), func(dir string) string { return filepath.Join(dir, name) },
-		"GTK applications fall back to Adwaita",
-	)
+	return check
 }
 
 // fontChecks resolves the theme's font families against fontconfig.
@@ -187,28 +185,6 @@ func isGenericFamily(name string) bool {
 		return true
 	}
 	return false
-}
-
-// dirCheck looks for a directory under any of several roots.
-func dirCheck(name, value string, roots []string, path func(string) string, consequence string) Check {
-	check := Check{Name: name, Value: value}
-	if strings.TrimSpace(value) == "" {
-		check.Level = LevelWarn
-		check.Value = "unset"
-		check.Detail = consequence
-		return check
-	}
-
-	for _, root := range roots {
-		if info, err := os.Stat(path(root)); err == nil && info.IsDir() {
-			check.Level = LevelOK
-			return check
-		}
-	}
-
-	check.Level = LevelWarn
-	check.Detail = "not found in " + strings.Join(roots, ", ") + ": " + consequence
-	return check
 }
 
 // Session checks that the environment the toolkits read matches what Rice
@@ -263,53 +239,4 @@ func Worst(checks []Check) Level {
 		}
 	}
 	return worst
-}
-
-// dataDirs returns the XDG data directories with a subdirectory appended, in
-// lookup order: the user's own first, then the system's.
-func dataDirs(sub string) []string {
-	var roots []string
-
-	if home := os.Getenv("XDG_DATA_HOME"); home != "" {
-		roots = append(roots, home)
-	} else if home, err := os.UserHomeDir(); err == nil {
-		roots = append(roots, filepath.Join(home, ".local", "share"))
-	}
-
-	dirs := os.Getenv("XDG_DATA_DIRS")
-	if dirs == "" {
-		dirs = "/usr/local/share:/usr/share"
-	}
-	roots = append(roots, filepath.SplitList(dirs)...)
-
-	out := make([]string, 0, len(roots))
-	for _, root := range roots {
-		out = append(out, filepath.Join(root, sub))
-	}
-	return out
-}
-
-// iconDirs is where icon themes live. ~/.icons is the legacy location, and
-// still in use.
-func iconDirs() []string {
-	dirs := dataDirs("icons")
-	if home, err := os.UserHomeDir(); err == nil {
-		dirs = append(dirs, filepath.Join(home, ".icons"))
-	}
-	return dirs
-}
-
-// cursorDirs is where cursor themes live, which is the same set as icons.
-func cursorDirs() []string { return iconDirs() }
-
-// kvantumDirs is where Kvantum themes live: the user's configuration
-// directory first, then the shared data directories.
-func kvantumDirs() []string {
-	var dirs []string
-	if cfg := os.Getenv("XDG_CONFIG_HOME"); cfg != "" {
-		dirs = append(dirs, filepath.Join(cfg, "Kvantum"))
-	} else if home, err := os.UserHomeDir(); err == nil {
-		dirs = append(dirs, filepath.Join(home, ".config", "Kvantum"))
-	}
-	return append(dirs, dataDirs("Kvantum")...)
 }

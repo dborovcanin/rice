@@ -1531,6 +1531,17 @@ have printed the same configuration, ownership and dependency sections, and a
 second command that mostly repeats the first is a maintenance cost with no
 user benefit. Whichever name you reach for, you get the whole report.
 
+`internal/assets` enumerates what is installed — icon, cursor, GTK and Kvantum
+themes — by scanning the XDG data directories. It backs two things at once: the
+doctor checks below, and the editor's pickers, so a theme name is chosen from
+what exists rather than typed from memory.
+
+Only real themes count. A directory in the right place is not a theme: an icon
+theme carries an `index.theme`, a cursor theme a `cursors/` directory, a GTK
+theme a version directory. Fonts stay in `internal/fonts`, because they need
+fontconfig to resolve aliases and substitutions; a theme either has a directory
+or it does not.
+
 `internal/doctor` adds the part `status` could not answer: whether what a theme
 *asks for* exists on the machine.
 

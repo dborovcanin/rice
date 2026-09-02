@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -583,5 +584,82 @@ func TestSaveWritesProgramSettings(t *testing.T) {
 	}
 	if m.level != levelGood {
 		t.Errorf("saving reported %q", m.status)
+	}
+}
+
+func TestIconThemeOpensTheInstalledThemePicker(t *testing.T) {
+	// Point the asset lookups at a tree with two known icon themes.
+	root := t.TempDir()
+	for _, dir := range []string{"icons/Papirus-Dark", "icons/Adwaita"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(root, dir, "index.theme"), nil, 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+	t.Setenv("XDG_DATA_HOME", root)
+	t.Setenv("XDG_DATA_DIRS", filepath.Join(root, "empty"))
+	t.Setenv("HOME", root)
+
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter")
+
+	for i, g := range session.Groups() {
+		if g == session.GroupIcons {
+			m.groupCursor = i
+		}
+	}
+	press(t, m, "tab", "enter")
+
+	if m.overlay.kind != overlayAssets {
+		t.Fatalf("overlay = %v, want the installed-theme picker", m.overlay.kind)
+	}
+	if len(m.overlay.entries) != 2 {
+		t.Fatalf("entries = %v, want the two installed themes", m.overlay.entries)
+	}
+
+	// The cursor starts on the value the theme already has.
+	current, _ := m.sess.Get("icons.theme")
+	if got := m.overlay.entries[m.overlay.cursor].name; got != current {
+		t.Errorf("cursor on %q, want the current value %q", got, current)
+	}
+
+	// Typing filters, and enter takes the highlighted row.
+	typeText(t, m, "adw")
+	if len(m.overlay.entries) != 1 || m.overlay.entries[0].name != "Adwaita" {
+		t.Fatalf("filtered to %v, want just Adwaita", m.overlay.entries)
+	}
+	press(t, m, "enter")
+
+	if got, _ := m.sess.Get("icons.theme"); got != "Adwaita" {
+		t.Errorf("icon theme = %q, want Adwaita", got)
+	}
+}
+
+func TestPickerFallsBackToTypingWhenNothingIsInstalled(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", root)
+	t.Setenv("XDG_DATA_DIRS", filepath.Join(root, "empty"))
+	t.Setenv("HOME", root)
+
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter")
+
+	for i, g := range session.Groups() {
+		if g == session.GroupIcons {
+			m.groupCursor = i
+		}
+	}
+	press(t, m, "tab", "enter")
+
+	if m.overlay.kind != overlayAssets {
+		t.Fatal("expected the installed-theme picker")
+	}
+	typeText(t, m, "Hand-Typed")
+	press(t, m, "enter")
+
+	if got, _ := m.sess.Get("icons.theme"); got != "Hand-Typed" {
+		t.Errorf("icon theme = %q, want the typed value", got)
 	}
 }

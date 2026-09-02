@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dborovcanin/rice/internal/assets"
 	"github.com/dborovcanin/rice/internal/config"
 	"github.com/dborovcanin/rice/internal/theme"
 )
@@ -89,6 +90,13 @@ type Field struct {
 	Kind Kind
 	// Mono marks a font field that should offer monospaced families first.
 	Mono bool
+	// Assets names the kind of installed theme this field selects, when it
+	// selects one. An interface offers those instead of asking the user to
+	// remember an exact directory name.
+	Assets assets.Kind
+	// PicksAssets reports whether Assets means anything, since the zero Kind
+	// is a real value.
+	PicksAssets bool
 	// Derives marks a field that normalization fills in when it is left
 	// unset, which is true of the theme and not of the configuration.
 	Derives bool

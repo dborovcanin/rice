@@ -216,7 +216,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.overlay.kind == overlayFonts {
-			m.overlay.families = m.catalog.Filter("", m.overlay.mono)
+			m.overlay.all = fontEntries(m.catalog.Filter(m.overlay.input.Value(), m.overlay.mono))
+			m.overlay.entries = m.overlay.all
 			m.setStatus(levelInfo, "%d font families installed", m.catalog.Len())
 		}
 		return m, nil

@@ -53,7 +53,7 @@ Groups on the left, fields on the right. `tab` moves between them.
 | Terminal | The 16 ANSI slots, cursor, selection and URL colors |
 | Fonts | UI, mono and bar families and sizes |
 | Sizing | Radius, borders, gaps, padding, opacity, blur, dim |
-| Icons & Cursor | Icon theme and size, cursor theme and size |
+| Icons & Cursor | Icon theme and size, cursor theme and size, GTK theme, Kvantum theme, Qt style |
 
 | Key | Does |
 | --- | --- |
@@ -112,6 +112,21 @@ mono font, Waybar or Rofi for the UI font.
 
 Without fontconfig installed, the filter box becomes a plain text field and the
 family can still be typed.
+
+### Icon, cursor, GTK and Kvantum themes
+
+These are pickable too, for the same reason fonts are: nobody remembers whether
+the directory is called `Papirus-Dark` or `papirus-dark`. `enter` lists what is
+actually installed, scanned from the XDG data directories and `~/.icons`, with
+the cursor starting on the current value.
+
+Only real themes are listed. A directory in the right place is not a theme: an
+icon theme carries an `index.theme`, a cursor theme a `cursors/` directory, a
+GTK theme a `gtk-3.0` or `gtk-4.0` directory. GTK's built-in themes — Adwaita
+and its variants — are offered even though they have no directory anywhere.
+
+If nothing matches, the filter box is the value, so a theme Rice cannot see can
+still be typed.
 
 ---
 

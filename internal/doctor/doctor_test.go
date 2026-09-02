@@ -30,15 +30,29 @@ func newRunner() *fcRunner {
 	return &fcRunner{Fake: command.NewFake(), families: "Inter\nIosevka\n"}
 }
 
-// dataHome points the XDG lookups at a temporary tree and creates the given
-// directories inside it, so asset checks run against a known filesystem.
-func dataHome(t *testing.T, dirs ...string) string {
+// dataHome points the XDG lookups at a temporary tree, so asset checks run
+// against a known filesystem rather than the developer's machine.
+func dataHome(t *testing.T, paths ...string) string {
 	t.Helper()
 
 	root := t.TempDir()
-	for _, dir := range dirs {
-		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+	for _, p := range paths {
+		full := filepath.Join(root, p)
+
+		// A trailing slash means a directory; anything else is a file. The
+		// distinction matters: the checks look for the marker that separates a
+		// real theme from a directory that merely sits in the right place.
+		if strings.HasSuffix(p, "/") {
+			if err := os.MkdirAll(full, 0o755); err != nil {
+				t.Fatalf("mkdir: %v", err)
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(full, nil, 0o644); err != nil {
+			t.Fatalf("write: %v", err)
 		}
 	}
 	t.Setenv("XDG_DATA_HOME", root)
@@ -59,10 +73,10 @@ func find(checks []doctor.Check, name string) (doctor.Check, bool) {
 
 func TestAssetsFindInstalledThemes(t *testing.T) {
 	dataHome(t,
-		"icons/Papirus-Dark",
-		"icons/Bibata/cursors",
-		"themes/Orchis",
-		"Kvantum/KvMine",
+		"icons/Papirus-Dark/index.theme",
+		"icons/Bibata/cursors/",
+		"themes/Orchis/gtk-3.0/",
+		"config/Kvantum/KvMine/",
 	)
 
 	th := theme.Theme{
