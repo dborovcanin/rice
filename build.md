@@ -56,7 +56,8 @@ The central principle is:
 * Light/dark variants.
 * Environment diagnostics.
 * Easy extension to additional applications.
-* Optional GUI editor.
+* Interactive TUI theme editor.
+* Optional GUI editor, after v1.0.
 * AUR/package distribution.
 * Portable setup across Arch Linux machines.
 
@@ -158,7 +159,13 @@ Tests:               testing package
 
 Snapshot tests:      golden files
 
-GUI:                 deferred
+TUI:                 Bubble Tea (bubbletea, bubbles, lipgloss)
+
+Font enumeration:    fc-list (no cgo)
+
+Clipboard:           wl-copy, with xclip/xsel fallback
+
+GUI:                 deferred until after v1.0
 ```
 
 Dependencies should remain minimal.
@@ -545,6 +552,17 @@ Not required for MVP.
 
 # 15. Preview Model
 
+Rice has two different previews, and they must not be confused.
+
+```text
+rice preview        swaps `current`, changes the live desktop
+sandbox preview     renders to /tmp and launches one application,
+                    leaving the desktop untouched
+```
+
+This section describes the first. The sandbox preview used by the TUI is
+described in section 40.
+
 Preview should not create hundreds of committed generations.
 
 Use:
@@ -654,7 +672,8 @@ Recommended debounce:
 50–200 ms
 ```
 
-Do not create a committed generation for every file edit or GUI slider movement.
+Do not create a committed generation for every file edit or every keystroke in
+the TUI editor.
 
 Go implementation can use:
 
@@ -825,6 +844,7 @@ rice/
 │   │   ├── root.go
 │   │   ├── setup.go
 │   │   ├── apply.go
+│   │   ├── tui.go
 │   │   ├── preview.go
 │   │   ├── rollback.go
 │   │   ├── doctor.go
@@ -899,9 +919,29 @@ rice/
 │   │   ├── clipboard.go
 │   │   └── power.go
 │   │
-│   └── preview/
-│       ├── preview.go
-│       └── watcher.go
+│   ├── preview/
+│   │   ├── preview.go
+│   │   └── watcher.go
+│   │
+│   ├── session/
+│   │   ├── session.go      draft theme + config, UI-agnostic
+│   │   ├── mutate.go       field-level edits and resets
+│   │   ├── sandbox.go      /tmp render + application launch
+│   │   └── export.go       save as user theme, copy to clipboard
+│   │
+│   ├── fonts/
+│   │   └── fonts.go        fc-list enumeration and filtering
+│   │
+│   ├── clipboard/
+│   │   └── clipboard.go    wl-copy with fallbacks
+│   │
+│   └── tui/
+│       ├── app.go          root model and routing
+│       ├── picker.go       theme picker
+│       ├── editor.go       global theme editor
+│       ├── color.go        color field and swatches
+│       ├── font.go         font picker
+│       └── program.go      per-program screens (later)
 │
 ├── templates/
 │   ├── sway/
@@ -1138,6 +1178,7 @@ mono_size = 10
 
 [icons]
 theme = "Papirus-Dark"
+size = 24
 
 [cursor]
 theme = "Bibata-Modern-Ice"
@@ -1337,6 +1378,7 @@ Proposed command structure:
 
 ```text
 rice
+├── tui
 ├── setup
 ├── apply
 ├── rollback
@@ -1382,6 +1424,9 @@ rice rollback
 ```
 
 should remain available even if internally implemented through subcommands.
+
+`rice` with no arguments on an interactive terminal opens the TUI. Every
+subcommand keeps working unchanged, so scripts and pipelines are unaffected.
 
 ---
 
@@ -1610,116 +1655,297 @@ Avoid noisy logging during ordinary use.
 
 ---
 
-# 38. GUI Theme Editor
+# 38. Interactive Editor — TUI, Not GUI
 
-The GUI remains post-MVP.
+Rice needs an interactive way to pick a theme, tweak it, look at the result and
+keep it. The CLI stays: it is the right tool for pipelines, scripting and quick
+one-shot changes. The interactive editor is an addition, not a replacement.
 
-Do not couple the core architecture to a particular GUI toolkit.
-
-Potential architecture:
+The decision is:
 
 ```text
-            Go core
-           /       \
-        CLI         GUI
+Interactive editor:  TUI  (Bubble Tea)
+GUI:                 deferred, post-v1.0, optional
 ```
 
-The GUI must use the same:
+## Why a TUI
 
-* config parser;
-* theme model;
-* renderer;
-* validator;
-* preview engine;
-* generation store.
+* **Colors survive the terminal.** Truecolor ANSI renders real swatches. The
+  primary editing task is color selection, and a terminal represents it
+  honestly.
+* **The binary stays one static file.** Templates and themes are already
+  embedded. A GTK4 or Qt GUI drags in cgo and toolkit development headers and
+  breaks `make release` cross-compilation. Fyne and Gio avoid cgo-heavy builds
+  but produce an application that looks nothing like the desktop it configures.
+* **The audience lives in a terminal.** Rice configures a minimal Wayland
+  desktop. Its user has a terminal open.
+* **It works when the desktop does not.** A TUI runs over SSH and from a bare
+  TTY, which is exactly the situation a broken rice creates.
+* **The honest preview is not a widget.** Preview means rendering real
+  configuration and launching the real application against it. That mechanism
+  is identical under a TUI and a GUI, so a GUI would buy a worse, simulated
+  preview rather than a better one.
 
-No duplicate theming logic.
+## Where a TUI is genuinely weaker
+
+Font selection. A terminal cannot render an arbitrary system font family, and
+a machine typically has thousands installed.
+
+Mitigations:
+
+* enumerate families through `fc-list`, deduplicated and sorted;
+* filter monospaced candidates through fontconfig spacing;
+* fuzzy filtering, with likely families surfaced first;
+* treat the sandbox preview as the font preview — launching Foot against the
+  generated `foot.ini` shows the real mono font at the real size, and Waybar or
+  Rofi shows the real UI font.
+
+Icon size has the same property: only a real toolkit render tells the truth.
+
+## The GUI is not cancelled
+
+The GUI stays a possible later frontend, not a rewrite, provided the editing
+logic never lives inside the TUI. See section 39.
+
+If a GUI is eventually built, the earlier evaluation still holds: a Go backend
+with an embedded HTML/CSS/JS frontend served on localhost, assets carried in
+`embed.FS`, remains the most plausible option, because the task is visual
+editing and CSS is good at it. That decision stays deferred until after v1.0.
 
 ---
 
-# 39. GUI Options
+# 39. Session Layer
 
-## Option A — Native Go GUI
-
-Possible frameworks:
-
-* Fyne
-* Gio
-* Wails with native/web hybrid architecture
-
-Evaluate only when GUI work begins.
-
----
-
-## Option B — Embedded Web UI
-
-Potentially preferred.
-
-Architecture:
+The interactive editor must not own state.
 
 ```text
-rice gui
-   ↓
-Go HTTP server
-   ↓
-localhost
-   ↓
-HTML/CSS/JS theme editor
+             internal/session
+          (draft state + operations)
+             /              \
+     internal/tui        future GUI
 ```
 
-Assets can be embedded through:
+`internal/session` is UI-agnostic and holds:
+
+* the draft theme, starting from a chosen base theme;
+* the draft configuration;
+* per-field overrides and which fields are dirty;
+* validation of the draft;
+* sandbox rendering and preview launching;
+* export to clipboard;
+* saving the draft as a user theme.
+
+Rules:
+
+* the TUI holds no configuration state of its own — only cursor position,
+  focus, filter text and other view concerns;
+* every mutation is a `session` method, so it is testable without a terminal;
+* `session` reuses the existing `config`, `theme`, `render`, `adapter` and
+  `generation` packages without duplicating any of their logic;
+* `session` never writes into `~/.config` and never switches `current`; saving
+  and applying remain explicit user actions routed through the existing
+  generation machinery.
+
+Sketch:
 
 ```go
-embed.FS
+type Session struct {
+    Base     theme.Theme
+    Draft    theme.Theme
+    Config   config.Config
+    Dirty    map[string]bool
+}
+
+func (s *Session) SetColor(field string, c theme.Color) error
+func (s *Session) SetFont(role FontRole, family string, size int) error
+func (s *Session) Reset(field string) 
+func (s *Session) Validate() []error
+func (s *Session) RenderSandbox(component string) (string, error)
+func (s *Session) Preview(component string) (*exec.Cmd, error)
+func (s *Session) Copy(component string) error
+func (s *Session) SaveTheme(name string) (string, error)
 ```
 
-Advantages:
+Saving writes a normal theme file:
 
-* excellent CSS-based visual previews;
-* easy color controls;
-* simple layout controls;
-* good representation of bars, launchers, terminals, and notifications;
-* frontend remains inside the Rice binary.
+```text
+~/.config/rice/themes/<name>.toml
+```
 
-The GUI technology decision should be deferred until after the CLI/core architecture is stable.
+This reuses the existing rule that a user theme shadows a bundled theme of the
+same name. No new persistence mechanism is introduced.
 
 ---
 
-# 40. GUI Live Preview
+# 40. TUI Design
 
-The GUI modifies preview state:
+Entry point:
 
-```text
-GUI field
-   ↓
-theme model
-   ↓
-preview generation
-   ↓
-reload
+```bash
+rice tui
 ```
 
-Controls:
+`rice` with no arguments and an interactive terminal may also open the TUI,
+while every existing subcommand keeps its current behavior.
 
-* colors;
-* radius;
-* gaps;
-* borders;
-* opacity;
-* blur;
-* UI font;
-* terminal font;
-* icon theme;
-* cursor theme.
+## Screen flow
 
-Preview components:
+```text
+Theme picker
+     │
+     ▼
+Global theme editor  ──────►  Sandbox preview
+     │                            (launch real app)
+     ├──► Colors
+     ├──► Fonts
+     ├──► Sizing / geometry
+     ├──► Icons and cursor
+     │
+     ▼
+Per-program editors            (later; same session layer)
+     │
+     ▼
+Save theme  /  Copy config  /  Apply
+```
 
-* Sway window;
-* Waybar;
-* Rofi;
-* Foot;
-* Dunst;
-* swaylock.
+## Theme picker
+
+Lists bundled and user themes through the existing theme store, marking the
+active one. Each row previews its palette as colored blocks. Selecting a theme
+seeds the draft.
+
+## Global theme editor
+
+Groups, matching the existing theme model:
+
+```text
+Colors      background, surface, surface_alt, overlay,
+            foreground, muted,
+            primary, secondary, accent,
+            success, warning, error,
+            border, border_focus
+
+Terminal    16 ANSI colors, cursor, selection, url
+
+Fonts       ui_family / ui_size
+            mono_family / mono_size
+            bar_family / bar_size
+
+Sizing      radius, border_width, gaps_inner, gaps_outer,
+            padding, horizontal_padding,
+            opacity, blur_radius, blur_passes, dim_inactive
+
+Icons       icon theme, icon size
+Cursor      cursor theme, cursor size
+```
+
+Each row shows the value, a swatch where it is a color, and whether it is
+inherited from the base theme or overridden.
+
+`icon size` does not exist in the theme model yet and must be added as
+`icons.size`, then consumed by the Rofi template and by the GTK/Qt integration
+in section 31.
+
+## Color editing
+
+* hex entry with live validation through the existing `theme.Color` parser;
+* a swatch beside every field, plus a foreground-on-background contrast sample
+  for pairs that matter;
+* nudge keys for lightness and saturation, so a palette can be adjusted without
+  computing hex by hand;
+* reset-to-base on any field.
+
+## Font selection
+
+Source:
+
+```bash
+fc-list : family          # all families
+fc-list :spacing=100 family   # monospaced candidates
+```
+
+Enumerated once per session, deduplicated, cached. Monospaced families are
+offered first for the mono and bar roles. Fuzzy filter over the list. Size is a
+numeric field. The rendered result is confirmed through the sandbox preview,
+not through the picker.
+
+Fontconfig is queried through `fc-list` rather than linked, keeping the binary
+free of cgo.
+
+## Sandbox preview
+
+This is distinct from `rice preview` in sections 15–17. That command swaps the
+`current` symlink and changes the live desktop. Sandbox preview does not touch
+the desktop at all.
+
+```text
+draft theme
+     ↓
+render into /tmp/rice-preview/<pid>/
+     ↓
+launch the application against those files
+     ↓
+user closes it; directory is removed
+```
+
+Per component:
+
+| Component | Command | Notes |
+| --- | --- | --- |
+| Foot | `foot -c <dir>/foot/foot.ini` | Clean. |
+| Rofi | `rofi -config <dir>/rofi/config.rasi -show drun` | Clean. |
+| Waybar | `waybar -c <dir>/waybar/config.jsonc -s <dir>/waybar/style.css` | Second instance overlaps the running bar; force a distinct position or accept the overlap for the preview's lifetime. |
+| Sway | nested `sway -c <dir>/sway/config` | Runs as a window inside the running session. |
+| Dunst | `dunst -config <dir>/dunst/dunstrc` | Conflicts with the running instance over the D-Bus name. Needs a replace-and-restore dance, or is excluded initially. |
+| swaylock | `swaylock -C <dir>/swaylock/config` | Actually locks the screen. Must be opt-in behind an explicit confirmation, and is excluded by default. |
+
+Rules:
+
+* preview never runs unless the component is enabled and its binary exists;
+* the sandbox directory is created under `/tmp`, owned by the user, and removed
+  when the preview process exits;
+* a failed render is reported in the TUI and launches nothing.
+
+## Clipboard export
+
+For users who want Rice as a config generator only, not as a ricing system:
+
+```text
+Copy <component> config  →  wl-copy
+```
+
+Falls back to `xclip`/`xsel` if `wl-copy` is missing, and to writing the file
+path if no clipboard tool exists. The same content is available non-interactively
+through the existing `rice render -c <component>`.
+
+## Finishing
+
+From the editor:
+
+```text
+Save theme        write ~/.config/rice/themes/<name>.toml
+Apply             save, then run the normal apply path
+Discard           drop the draft
+```
+
+Apply reuses `runApply` unchanged. The TUI does not gain a private route to
+`current`.
+
+## Implementation notes
+
+Dependencies added:
+
+```text
+charmbracelet/bubbletea
+charmbracelet/bubbles
+charmbracelet/lipgloss
+```
+
+No cgo. This is the first meaningful dependency growth in the module and should
+stay at these three.
+
+Degrade honestly: if the terminal reports no truecolor support, say so rather
+than rendering misleading swatches.
 
 ---
 
@@ -2009,7 +2235,65 @@ returns the exact previous generation.
 
 ---
 
-# 47. Phase 4 — Desktop Utilities
+# 47. Phase 4 — TUI
+
+**Target: 4–7 engineering days**
+
+Split so the session layer lands and is tested before any terminal code exists.
+
+## 4a — Session layer
+
+* [ ] `internal/session` draft state over a base theme.
+* [ ] Field-level mutation, dirty tracking and reset-to-base.
+* [ ] Draft validation reusing `theme.Validate`.
+* [ ] Save draft as a user theme.
+* [ ] Unit tests, no terminal involved.
+
+## 4b — Sandbox preview
+
+* [ ] Render the draft into `/tmp/rice-preview/<pid>/`.
+* [ ] Launch table per component, guarded by binary presence.
+* [ ] Cleanup on process exit, including the crash path.
+* [ ] Foot, Rofi, Waybar and nested Sway first.
+* [ ] Dunst and swaylock only once their conflicts are handled.
+
+## 4c — Supporting packages
+
+* [ ] `internal/fonts` — `fc-list` enumeration, dedupe, mono filter, cache.
+* [ ] `internal/clipboard` — `wl-copy` with `xclip`/`xsel` fallback.
+* [ ] `icons.size` added to the theme model and consumed by Rofi and GTK/Qt.
+
+## 4d — Terminal interface
+
+* [ ] `rice tui`, plus bare `rice` on an interactive terminal.
+* [ ] Theme picker with palette swatches.
+* [ ] Global editor: colors, terminal palette, fonts, sizing, icons, cursor.
+* [ ] Color fields with swatches, contrast samples and lightness nudges.
+* [ ] Font picker with fuzzy filter and monospace-first ordering.
+* [ ] Preview and copy actions per component.
+* [ ] Save, apply, discard.
+* [ ] Truecolor detection with an honest message when unsupported.
+
+## 4e — Per-program editors
+
+* [ ] Program list derived from the adapter registry.
+* [ ] Per-program overrides on the same session layer.
+* [ ] Preview and copy from inside a program screen.
+
+Acceptance:
+
+```bash
+rice tui
+```
+
+picks a theme, changes the background color and the mono font, previews Foot
+against the draft, copies the Rofi config to the clipboard, saves the result as
+a user theme, and leaves `~/.config` and `current` untouched until apply is
+chosen explicitly.
+
+---
+
+# 48. Phase 5 — Desktop Utilities
 
 **Target: 2–4 engineering days**
 
@@ -2030,13 +2314,14 @@ Allow user scripts where customization is desirable.
 
 ---
 
-# 48. Phase 5 — GTK / Qt
+# 49. Phase 6 — GTK / Qt
 
 **Target: 1–3 engineering days**
 
 * [ ] GTK3
 * [ ] GTK4 where appropriate
 * [ ] icon settings
+* [ ] icon size, shared with the theme model
 * [ ] cursor settings
 * [ ] fonts
 * [ ] qt5ct
@@ -2044,30 +2329,6 @@ Allow user scripts where customization is desirable.
 * [ ] Kvantum
 * [ ] environment validation
 * [ ] doctor integration
-
----
-
-# 49. Phase 6 — GUI
-
-**Target: 5–8 engineering days**
-
-* [ ] evaluate native Go vs embedded web UI
-* [ ] palette editor
-* [ ] layout controls
-* [ ] typography controls
-* [ ] component previews
-* [ ] live preview integration
-* [ ] save
-* [ ] save as
-* [ ] revert
-
-Preferred implementation direction to evaluate first:
-
-```text
-Go backend + embedded HTML/CSS/JS frontend
-```
-
-because the primary GUI task is visual theme editing.
 
 ---
 
@@ -2085,6 +2346,12 @@ because the primary GUI task is visual theme editing.
 * [ ] AUR package
 * [ ] checksums
 * [ ] tagged releases
+
+## Beyond v1.0
+
+A GUI, if it happens at all, is a second frontend over `internal/session` and
+is scheduled only after v1.0 ships. See section 38 for why the TUI comes first
+and what a GUI would have to reuse.
 
 ---
 
@@ -2123,9 +2390,9 @@ CGO_ENABLED=0 go build \
     ./cmd/rice
 ```
 
-Do not force `CGO_ENABLED=0` if a future GUI dependency requires CGO.
-
-CLI releases should ideally remain pure Go.
+Releases stay pure Go. The TUI adds no cgo, and fontconfig is queried through
+`fc-list` rather than linked, so `CGO_ENABLED=0` remains correct. Only a future
+GUI toolkit would challenge this, and that decision is post-v1.0.
 
 ---
 
@@ -2229,6 +2496,8 @@ Rice v1.0 should provide:
 * [ ] GTK integration
 * [ ] Qt/Kvantum integration
 * [ ] essential helper utilities
+* [ ] interactive TUI theme editor
+* [ ] sandbox preview and clipboard export
 * [ ] `rice doctor`
 * [ ] bundled themes
 * [ ] automated tests
@@ -2236,7 +2505,8 @@ Rice v1.0 should provide:
 * [ ] Arch installation instructions
 * [ ] release binary
 
-The GUI does not need to block v1.0.
+The GUI does not need to block v1.0. The TUI does: it is the interactive
+editor, and without it Rice is a generator with no way to explore a theme.
 
 ---
 
@@ -2481,12 +2751,18 @@ Then:
 
 ```text
 7. Preview
-8. Doctor
-9. Desktop utilities
-10. GTK / Qt
+8. Session layer
+9. TUI
+10. Doctor
+11. Desktop utilities
+12. GTK / Qt
 ```
 
-Do not start the GUI before the generation, preview, and rollback models are stable.
+Do not start the TUI before the generation, preview, and rollback models are
+stable, and do not start it by writing terminal code: the session layer comes
+first, or the editing logic ends up trapped inside the views.
+
+Do not start a GUI before v1.0.
 
 ---
 
@@ -2521,10 +2797,23 @@ Includes:
 * doctor;
 * safe setup/uninstall.
 
+## Interactive Version
+
+```text
+11–19 engineering days total
+```
+
+Adds:
+
+* session layer;
+* sandbox preview;
+* font enumeration and clipboard export;
+* TUI theme picker and editor.
+
 ## Strong Daily-Use Version
 
 ```text
-10–15 engineering days
+14–24 engineering days total
 ```
 
 Adds:
@@ -2535,19 +2824,20 @@ Adds:
 * edge-case handling;
 * documentation.
 
-## GUI + Public Release
+## Public Release
 
 ```text
-20–30 engineering days total
+18–30 engineering days total
 ```
 
 Adds:
 
-* GUI theme editor;
-* live visual editing;
+* per-program editors;
 * wallpaper themes;
 * packaging;
 * release polish.
+
+A GUI, if built later, is separate from these numbers.
 
 ---
 
