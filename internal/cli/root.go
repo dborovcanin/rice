@@ -79,6 +79,7 @@ func NewRootCmd() *cobra.Command {
 		newInitCmd(get),
 		newApplyCmd(get),
 		newRenderCmd(get),
+		newDiffCmd(get),
 		newPreviewCmd(get),
 		newRollbackCmd(get),
 		newThemeCmd(get),

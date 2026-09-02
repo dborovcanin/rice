@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/dborovcanin/rice/internal/generation"
 	"github.com/dborovcanin/rice/internal/session"
 )
 
@@ -129,4 +132,136 @@ func TestEveryCommandIsDocumented(t *testing.T) {
 			t.Errorf("%q has no example", cmd.CommandPath())
 		}
 	})
+}
+
+func TestWriteDiffReportsEachKindOfChange(t *testing.T) {
+	base := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(base, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("foot/foot.ini", "a\nb\nc\n")
+	write("rofi/config.rasi", "gone\n")
+	// The manifest differs on every build and says nothing about the
+	// configuration, so it must not appear.
+	write(generation.ManifestName, "generation = 1\n")
+
+	files := []generation.Rendered{
+		{Component: "foot", Path: "foot/foot.ini", Content: []byte("a\nB\nc\n")},
+		{Component: "waybar", Path: "waybar/style.css", Content: []byte("new\n")},
+	}
+
+	var out strings.Builder
+	if err := writeDiff(&out, diffOptions{
+		base: base, baseLabel: "generation 000001", files: files, context: 1,
+	}); err != nil {
+		t.Fatalf("writeDiff: %v", err)
+	}
+	got := out.String()
+
+	for _, want := range []string{"-b", "+B", "+new", "-gone"} {
+		if !strings.Contains(got, want+"\n") {
+			t.Errorf("missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, generation.ManifestName) {
+		t.Errorf("the manifest should not be diffed:\n%s", got)
+	}
+
+	// The summary counts the same three files.
+	out.Reset()
+	if err := writeDiff(&out, diffOptions{
+		base: base, baseLabel: "generation 000001", files: files, stat: true,
+	}); err != nil {
+		t.Fatalf("writeDiff: %v", err)
+	}
+	stat := out.String()
+	for _, want := range []string{
+		"changed  foot/foot.ini", "new      waybar/style.css",
+		"removed  rofi/config.rasi", "3 file(s) differ",
+	} {
+		if !strings.Contains(stat, want) {
+			t.Errorf("summary is missing %q:\n%s", want, stat)
+		}
+	}
+}
+
+func TestWriteDiffSaysNothingChanged(t *testing.T) {
+	base := t.TempDir()
+	path := filepath.Join(base, "foot")
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(path, "foot.ini"), []byte("same\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out strings.Builder
+	if err := writeDiff(&out, diffOptions{
+		base:      base,
+		baseLabel: "generation 000007",
+		files:     []generation.Rendered{{Component: "foot", Path: "foot/foot.ini", Content: []byte("same\n")}},
+	}); err != nil {
+		t.Fatalf("writeDiff: %v", err)
+	}
+	if !strings.Contains(out.String(), "No change against generation 000007.") {
+		t.Errorf("unchanged output = %q", out.String())
+	}
+}
+
+func TestWriteDiffFiltersByComponent(t *testing.T) {
+	base := t.TempDir()
+	for _, dir := range []string{"foot", "waybar"} {
+		if err := os.MkdirAll(filepath.Join(base, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(base, "foot", "foot.ini"), []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "waybar", "style.css"), []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files := []generation.Rendered{
+		{Component: "foot", Path: "foot/foot.ini", Content: []byte("new\n")},
+		{Component: "waybar", Path: "waybar/style.css", Content: []byte("new\n")},
+	}
+
+	var out strings.Builder
+	if err := writeDiff(&out, diffOptions{
+		base: base, baseLabel: "base", files: files, component: "foot", stat: true,
+	}); err != nil {
+		t.Fatalf("writeDiff: %v", err)
+	}
+	got := out.String()
+
+	if !strings.Contains(got, "foot/foot.ini") {
+		t.Errorf("the selected component is missing:\n%s", got)
+	}
+	if strings.Contains(got, "waybar") {
+		t.Errorf("another component leaked in:\n%s", got)
+	}
+}
+
+// With nothing committed yet, every file is new rather than an error.
+func TestWriteDiffAgainstNothing(t *testing.T) {
+	var out strings.Builder
+	if err := writeDiff(&out, diffOptions{
+		base:      "",
+		baseLabel: "nothing",
+		files:     []generation.Rendered{{Component: "foot", Path: "foot/foot.ini", Content: []byte("x\n")}},
+		stat:      true,
+	}); err != nil {
+		t.Fatalf("writeDiff: %v", err)
+	}
+	if !strings.Contains(out.String(), "new      foot/foot.ini") {
+		t.Errorf("output = %q", out.String())
+	}
 }

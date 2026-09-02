@@ -152,6 +152,11 @@ rice render                      # print every generated file to stdout
 rice render -c foot              # only one component
 rice render -o /tmp/preview      # write files to a directory instead
 
+rice diff                        # what applying would change, as a diff
+rice diff --stat                 # ... just the shape of it
+rice diff --theme tokyo-night    # what switching theme would change
+rice diff 39                     # against an older generation
+
 rice theme list                  # bundled and user themes, * marks the active one
 rice theme show                  # resolved values of the active theme
 rice theme show tokyo-night      # ... or of any other theme

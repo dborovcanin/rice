@@ -32,9 +32,10 @@ func newRenderCmd(app func() *App) *cobra.Command {
   # Preview a theme without changing config.toml.
   rice render --theme tokyo-night -c sway
 
-  # Write the files somewhere to diff them.
+  # Write the files somewhere.
   rice render -o /tmp/preview
-  diff -r /tmp/preview ~/.config/rice/current`,
+
+  # To see what would change, prefer `rice diff`.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()

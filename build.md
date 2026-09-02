@@ -51,6 +51,20 @@ make build
   there. This was asked for and cannot be delivered; it is documented where it
   applies rather than promised everywhere.
 
+## Also built, beyond the plan
+
+`rice diff` — what applying would actually change, as a unified diff. The
+documentation previously told you to render into a temporary directory and run
+`diff -r` yourself, which is a workaround, not an answer. `internal/diff` is a
+small LCS diff; its output is tested by handing it to real `patch` and checking
+the result matches byte for byte.
+
+One detail that decides whether the command is useful at all: the new side is
+rendered with the **base generation's** number, not the next one. Every
+generated file carries its generation number in a header comment, so numbering
+the two sides differently reports a change in every file and buries the ones
+that matter. The number always changes; that is not news.
+
 ## What is left
 
 * Per-program **list** editing — outputs, workspaces, bindings and window rules
