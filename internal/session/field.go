@@ -18,27 +18,26 @@ type Group int
 
 const (
 	GroupColors Group = iota
-	GroupTerminal
 	GroupFonts
-	GroupSizing
+	GroupSwayFX
 	GroupIcons
 )
 
-// Groups returns every group in presentation order.
+// Groups returns every group in presentation order. These are the settings
+// that belong to the desktop as a whole; anything that belongs to one
+// application is in that application's own table instead.
 func Groups() []Group {
-	return []Group{GroupColors, GroupTerminal, GroupFonts, GroupSizing, GroupIcons}
+	return []Group{GroupColors, GroupFonts, GroupSwayFX, GroupIcons}
 }
 
 func (g Group) String() string {
 	switch g {
 	case GroupColors:
 		return "Colors"
-	case GroupTerminal:
-		return "Terminal"
 	case GroupFonts:
 		return "Fonts"
-	case GroupSizing:
-		return "Sizing"
+	case GroupSwayFX:
+		return "SwayFX"
 	case GroupIcons:
 		return "Icons & Cursor"
 	}
@@ -53,6 +52,16 @@ type Draft struct {
 	Theme  theme.Theme
 	Config config.Config
 }
+
+// Store is which file a field's value ends up in.
+type Store int
+
+const (
+	// StoreTheme is saved to the theme file: appearance.
+	StoreTheme Store = iota
+	// StoreConfig is saved to config.toml: structure.
+	StoreConfig
+)
 
 // Kind is what sort of value a field holds, which decides how it is parsed,
 // displayed and edited.
@@ -98,8 +107,14 @@ type Field struct {
 	// is a real value.
 	PicksAssets bool
 	// Derives marks a field that normalization fills in when it is left
-	// unset, which is true of the theme and not of the configuration.
+	// unset, which is true of much of the theme and none of the
+	// configuration.
 	Derives bool
+	// Store says which file the field is saved to. A group may hold fields
+	// from both — SwayFX mixes the theme's geometry with the compositor's
+	// behaviour — so dirty tracking follows this rather than which table a
+	// field was declared in.
+	Store Store
 	// Choices, when set, are the only accepted values.
 	Choices []string
 	// Help is a one-line explanation shown beside the field.

@@ -691,3 +691,161 @@ func TestDiffNeedsSomethingToCompareWith(t *testing.T) {
 		t.Errorf("err = %v, want ErrNothingToCompare", err)
 	}
 }
+
+// The global section is the desktop as a whole: colours, fonts, the
+// compositor, icons. Anything belonging to one application lives with that
+// application.
+func TestGlobalGroups(t *testing.T) {
+	var names []string
+	for _, g := range session.Groups() {
+		names = append(names, g.String())
+	}
+	want := []string{"Colors", "Fonts", "SwayFX", "Icons & Cursor"}
+	if !slices.Equal(names, want) {
+		t.Errorf("groups = %v, want %v", names, want)
+	}
+}
+
+// The ANSI palette is what a terminal is for, so it is edited under the
+// terminal — but it is still part of the theme, so it saves to the theme file.
+func TestTerminalPaletteLivesWithTheTerminal(t *testing.T) {
+	foot := session.ProgramFields("foot")
+	if len(foot) == 0 {
+		t.Fatal("foot has no fields")
+	}
+	if foot[0].Key != "terminal.background" {
+		t.Errorf("foot leads with %q, want the palette first", foot[0].Key)
+	}
+
+	var found session.Field
+	for _, f := range foot {
+		if f.Key == "terminal.regular.1" {
+			found = f
+		}
+	}
+	if found.Key == "" {
+		t.Fatal("the ANSI palette is not under foot")
+	}
+	if found.Store != session.StoreTheme {
+		t.Error("the palette is appearance and must save to the theme file")
+	}
+
+	// And it is not in any global group.
+	for _, f := range session.Fields() {
+		if strings.HasPrefix(f.Key, "terminal.") {
+			t.Errorf("%q is still a global field", f.Key)
+		}
+	}
+}
+
+// The compositor is the desktop, not an application on it.
+func TestCompositorSettingsAreGlobal(t *testing.T) {
+	if len(session.ProgramFields("sway")) != 0 {
+		t.Error("sway should have no per-program settings")
+	}
+	if session.Note("sway") == "" {
+		t.Error("sway needs a note saying where its settings went")
+	}
+
+	inSwayFX := map[string]session.Field{}
+	for _, f := range session.FieldsIn(session.GroupSwayFX) {
+		inSwayFX[f.Key] = f
+	}
+
+	for _, key := range []string{
+		"ui.radius", "ui.gaps_inner", "ui.opacity",
+		"sway.mod", "sway.smart_gaps", "sway.focus_follows_mouse",
+		"sway.keyboard.layout", "sway.touchpad.tap", "sway.idle.lock_after",
+	} {
+		if _, ok := inSwayFX[key]; !ok {
+			t.Errorf("%q is missing from the SwayFX section", key)
+		}
+	}
+
+	// Geometry is appearance; behaviour is structure. They share a section
+	// but not a file.
+	if inSwayFX["ui.radius"].Store != session.StoreTheme {
+		t.Error("ui.radius should save to the theme")
+	}
+	if inSwayFX["sway.mod"].Store != session.StoreConfig {
+		t.Error("sway.mod should save to config.toml")
+	}
+}
+
+// Dirty tracking follows where a field is saved, not which table it was
+// declared in — the terminal palette is edited under an application but
+// belongs to the theme.
+func TestDirtyTrackingFollowsTheStore(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	if err := s.Set("terminal.regular.1", "#ff0000"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if !s.ThemeDirty() {
+		t.Error("editing the palette should dirty the theme")
+	}
+	if s.ConfigDirty() {
+		t.Error("editing the palette should not dirty the configuration")
+	}
+
+	s.ResetAll()
+	if err := s.Set("sway.mod", "Mod1"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if s.ThemeDirty() {
+		t.Error("editing the compositor should not dirty the theme")
+	}
+	if !s.ConfigDirty() {
+		t.Error("editing the compositor should dirty the configuration")
+	}
+}
+
+// A palette edit made under the terminal has to survive a save, which it only
+// does if the theme knows it changed.
+func TestPaletteEditedUnderTheTerminalIsSaved(t *testing.T) {
+	s, _, themesDir := newSession(t)
+
+	if err := s.Set("terminal.regular.2", "#00ff00"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	path, err := s.SaveTheme("palette-edit")
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if path != filepath.Join(themesDir, "palette-edit.toml") {
+		t.Errorf("path = %q", path)
+	}
+
+	reloaded, err := theme.ParseFile(path)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if got := reloaded.Terminal.Regular[2].String(); got != "#00ff00" {
+		t.Errorf("terminal.regular.2 = %q, want #00ff00", got)
+	}
+}
+
+// Every field belongs to exactly one place, or the editor shows it twice and
+// two rows disagree about the same value.
+func TestNoFieldHasTwoHomes(t *testing.T) {
+	seen := map[string]string{}
+
+	for _, f := range session.Fields() {
+		if where, dup := seen[f.Key]; dup {
+			t.Errorf("%q is in both %s and a global group", f.Key, where)
+		}
+		seen[f.Key] = "global"
+	}
+	for _, component := range []string{"sway", "waybar", "rofi", "foot", "dunst", "swaylock", "gtk", "qt"} {
+		for _, f := range session.ProgramFields(component) {
+			if where, dup := seen[f.Key]; dup {
+				t.Errorf("%q is in both %s and %s", f.Key, where, component)
+			}
+			seen[f.Key] = component
+		}
+	}
+
+	if len(session.EveryField()) != len(seen) {
+		t.Errorf("EveryField has %d, the tables have %d", len(session.EveryField()), len(seen))
+	}
+}

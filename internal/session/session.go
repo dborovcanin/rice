@@ -321,20 +321,29 @@ func (s *Session) Overridden(key string) bool {
 }
 
 // Overrides lists the theme keys that differ from the base theme, in field
-// order. Program settings are not included: they are tracked separately,
+// order. Configuration settings are not included: they are tracked separately,
 // because they are saved to a different file.
 func (s *Session) Overrides() []string {
 	var keys []string
 	for _, f := range Fields() {
-		if !f.Same(s.Draft, s.Base) {
+		if f.Store == StoreTheme && !f.Same(s.Draft, s.Base) {
 			keys = append(keys, f.Key)
 		}
 	}
 	return keys
 }
 
-// ThemeDirty reports whether the theme differs from the base theme.
-func (s *Session) ThemeDirty() bool { return len(s.Overrides()) > 0 }
+// ThemeDirty reports whether anything saved to the theme file has changed.
+// It walks every field, not just the global ones: the terminal palette is part
+// of the theme but is edited under the terminal.
+func (s *Session) ThemeDirty() bool {
+	for _, f := range EveryField() {
+		if f.Store == StoreTheme && !f.Same(s.Draft, s.Base) {
+			return true
+		}
+	}
+	return false
+}
 
 // Dirty reports whether anything at all is unsaved.
 func (s *Session) Dirty() bool { return s.ThemeDirty() || s.ConfigDirty() }
@@ -428,13 +437,11 @@ func (s *Session) Save(name string) (string, error) {
 // test — can supply the writer afterwards.
 func (s *Session) SetConfigWriter(write func(config.Config) error) { s.writeConfig = write }
 
-// ConfigDirty reports whether any per-program setting differs from the file.
+// ConfigDirty reports whether anything saved to config.toml has changed.
 func (s *Session) ConfigDirty() bool {
-	for _, component := range s.Components() {
-		for _, f := range ProgramFields(component) {
-			if !f.Same(s.Draft, s.Base) {
-				return true
-			}
+	for _, f := range EveryField() {
+		if f.Store == StoreConfig && !f.Same(s.Draft, s.Base) {
+			return true
 		}
 	}
 	return false

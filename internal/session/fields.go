@@ -21,6 +21,21 @@ func FieldsIn(g Group) []Field {
 	return grouped[g]
 }
 
+// EveryField is every editable field, global and per-program. Dirty tracking
+// walks this: a field's Store says which file it is saved to, and that is not
+// the same question as which table it was declared in.
+func EveryField() []Field {
+	fieldsOnce.Do(buildFields)
+	programOnce.Do(buildProgramFields)
+
+	out := make([]Field, 0, len(allFields)+len(programKeys))
+	out = append(out, allFields...)
+	for _, f := range programKeys {
+		out = append(out, f)
+	}
+	return out
+}
+
 // LookupField finds a field by key, in the global theme table or in a
 // program's table. Keys are unique across both, so every operation on a field
 // works the same way whichever table it came from.
@@ -41,9 +56,8 @@ var (
 
 func buildFields() {
 	allFields = append(allFields, colorFields()...)
-	allFields = append(allFields, terminalFields()...)
 	allFields = append(allFields, fontFields()...)
-	allFields = append(allFields, sizingFields()...)
+	allFields = append(allFields, swayFXFields()...)
 	allFields = append(allFields, iconFields()...)
 
 	grouped = make(map[Group][]Field, len(Groups()))
@@ -80,9 +94,12 @@ func colorFields() []Field {
 // does, because "regular 4" means nothing on its own.
 var ansiNames = [8]string{"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"}
 
-func terminalFields() []Field {
+// TerminalFields is the shared ANSI palette. It is not a global group: only a
+// terminal reads it, so it belongs to the terminal. Any second terminal
+// emulator would show these same fields, because there is one palette.
+func TerminalFields() []Field {
 	c := func(key, label string, get func(*Draft) *theme.Color) Field {
-		return Field{Key: key, Label: label, Group: GroupTerminal, Kind: KindColor, Derives: true, color: get}
+		return Field{Key: key, Label: label, Kind: KindColor, Derives: true, color: get}
 	}
 
 	fields := []Field{
@@ -130,14 +147,20 @@ func fontFields() []Field {
 	}
 }
 
-func sizingFields() []Field {
+// swayFXFields is the compositor: how it looks and how it behaves. The
+// geometry is appearance and lives in the theme; the behaviour is structure
+// and lives in config.toml. They are one section because they are one
+// question — what is the window manager like — and the labels say which is
+// which by grouping.
+func swayFXFields() []Field {
 	px := func(key, label string, max float64, get func(*Draft) *int) Field {
-		return Field{Key: key, Label: label, Group: GroupSizing, Kind: KindInt, Min: 0, Max: max, Step: 1, Derives: true, num: get}
+		return Field{Key: key, Label: label, Group: GroupSwayFX, Kind: KindInt, Min: 0, Max: max, Step: 1, Derives: true, num: get}
 	}
 	frac := func(key, label string, get func(*Draft) *float64) Field {
-		return Field{Key: key, Label: label, Group: GroupSizing, Kind: KindFloat, Min: 0, Max: 1, Step: 0.01, Derives: true, frac: get}
+		return Field{Key: key, Label: label, Group: GroupSwayFX, Kind: KindFloat, Min: 0, Max: 1, Step: 0.01, Derives: true, frac: get}
 	}
-	return []Field{
+
+	geometry := []Field{
 		px("ui.radius", "Radius", 64, func(d *Draft) *int { return &d.Theme.UI.Radius }),
 		px("ui.border_width", "Border width", 32, func(d *Draft) *int { return &d.Theme.UI.BorderWidth }),
 		px("ui.gaps_inner", "Gaps inner", 128, func(d *Draft) *int { return &d.Theme.UI.GapsInner }),
@@ -150,6 +173,75 @@ func sizingFields() []Field {
 		frac("ui.blur_noise", "Blur noise", func(d *Draft) *float64 { return &d.Theme.UI.BlurNoise }),
 		px("ui.shadow_blur", "Shadow blur", 128, func(d *Draft) *int { return &d.Theme.UI.ShadowBlur }),
 		frac("ui.dim_inactive", "Dim inactive", func(d *Draft) *float64 { return &d.Theme.UI.DimInactive }),
+	}
+
+	return append(geometry, compositorFields()...)
+}
+
+// compositorFields are the window manager's own settings, which live in
+// config.toml. Labels are prefixed by what they configure, because "Layout"
+// and "Tap" mean nothing on their own in a list this long.
+func compositorFields() []Field {
+	sway := func(f Field) Field {
+		f.Group, f.Store = GroupSwayFX, StoreConfig
+		return f
+	}
+
+	return []Field{
+		sway(pText("sway.mod", "Modifier", "the key every binding hangs off",
+			func(d *Draft) *string { return &d.Config.Sway.Mod })),
+		sway(pText("sway.wallpaper", "Wallpaper", "path to the background image",
+			func(d *Draft) *string { return &d.Config.Sway.Wallpaper })),
+		sway(pChoice("sway.wallpaper_mode", "Wallpaper mode", "how the image fills the output",
+			[]string{"stretch", "fill", "fit", "center", "tile", "solid_color"},
+			func(d *Draft) *string { return &d.Config.Sway.WallpaperMode })),
+		sway(pBool("sway.titlebar", "Titlebars", "draw a titlebar on tiled windows",
+			func(d *Draft) *bool { return &d.Config.Sway.Titlebar })),
+		sway(pBool("sway.smart_borders", "Smart borders", "hide borders when a workspace has one window",
+			func(d *Draft) *bool { return &d.Config.Sway.SmartBorders })),
+		sway(pBool("sway.smart_gaps", "Smart gaps", "hide gaps when a workspace has one window",
+			func(d *Draft) *bool { return &d.Config.Sway.SmartGaps })),
+		sway(pBool("sway.focus_follows_mouse", "Focus follows mouse", "",
+			func(d *Draft) *bool { return &d.Config.Sway.FocusFollowsMouse })),
+
+		sway(pText("sway.keyboard.layout", "Keyboard layout", "xkb layouts, comma-separated: us,rs",
+			func(d *Draft) *string { return &d.Config.Sway.Keyboard.Layout })),
+		sway(pText("sway.keyboard.variant", "Keyboard variant", "one per layout: ,latin",
+			func(d *Draft) *string { return &d.Config.Sway.Keyboard.Variant })),
+		sway(pText("sway.keyboard.options", "Keyboard options", "xkb options, such as grp:alt_shift_toggle",
+			func(d *Draft) *string { return &d.Config.Sway.Keyboard.Options })),
+		sway(pInt("sway.keyboard.repeat_delay", "Repeat delay", "milliseconds before a key repeats", 0, 2000, 25,
+			func(d *Draft) *int { return &d.Config.Sway.Keyboard.RepeatDelay })),
+		sway(pInt("sway.keyboard.repeat_rate", "Repeat rate", "repeats per second", 0, 100, 5,
+			func(d *Draft) *int { return &d.Config.Sway.Keyboard.RepeatRate })),
+
+		sway(pBool("sway.touchpad.tap", "Touchpad tap", "tap to click",
+			func(d *Draft) *bool { return &d.Config.Sway.Touchpad.Tap })),
+		sway(pChoice("sway.touchpad.tap_button_map", "Tap buttons", "which button a two- or three-finger tap sends",
+			[]string{"lrm", "lmr"},
+			func(d *Draft) *string { return &d.Config.Sway.Touchpad.TapButtonMap })),
+		sway(pBool("sway.touchpad.natural_scroll", "Natural scroll", "",
+			func(d *Draft) *bool { return &d.Config.Sway.Touchpad.NaturalScroll })),
+		sway(pBool("sway.touchpad.disable_while_typing", "Disable while typing", "",
+			func(d *Draft) *bool { return &d.Config.Sway.Touchpad.DisableWhileTyping })),
+		sway(pBool("sway.touchpad.middle_emulation", "Middle emulation", "both buttons together send middle-click",
+			func(d *Draft) *bool { return &d.Config.Sway.Touchpad.MiddleEmulation })),
+		sway(pBool("sway.touchpad.drag_lock", "Drag lock", "",
+			func(d *Draft) *bool { return &d.Config.Sway.Touchpad.DragLock })),
+		sway(pChoice("sway.touchpad.accel_profile", "Accel profile", "pointer acceleration curve",
+			[]string{"adaptive", "flat"},
+			func(d *Draft) *string { return &d.Config.Sway.Touchpad.AccelProfile })),
+
+		sway(pBool("sway.idle.enabled", "Idle enabled", "run swayidle at all",
+			func(d *Draft) *bool { return &d.Config.Sway.Idle.Enabled })),
+		sway(pInt("sway.idle.lock_after", "Idle lock after", "seconds; 0 never locks", 0, 7200, 60,
+			func(d *Draft) *int { return &d.Config.Sway.Idle.LockAfter })),
+		sway(pInt("sway.idle.screen_off", "Idle screen off", "seconds; 0 never blanks", 0, 7200, 60,
+			func(d *Draft) *int { return &d.Config.Sway.Idle.ScreenOff })),
+		sway(pInt("sway.idle.sleep_after", "Idle sleep after", "seconds; 0 never suspends", 0, 28800, 300,
+			func(d *Draft) *int { return &d.Config.Sway.Idle.SleepAfter })),
+		sway(pBool("sway.idle.lock_on_sleep", "Lock on sleep", "",
+			func(d *Draft) *bool { return &d.Config.Sway.Idle.LockOnSleep })),
 	}
 }
 

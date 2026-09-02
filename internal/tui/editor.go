@@ -285,59 +285,80 @@ func (m *model) viewFields(width int) string {
 		return "no fields"
 	}
 
-	// Both columns are sized to their longest entry, so a long value never
-	// runs into the marker beside it.
-	labelWidth, valueWidth := 0, 8
-	for _, f := range fields {
-		if n := len(f.Label); n > labelWidth {
-			labelWidth = n
-		}
-		if n := len(f.Display(m.sess.Resolved())); n > valueWidth {
-			valueWidth = n
-		}
-	}
-
+	layout := m.measure(fields)
 	cursor := m.fieldCursor()
 	visible, offset := m.window(len(fields), cursor)
 
 	var b strings.Builder
 	for i := offset; i < offset+visible; i++ {
-		f := fields[i]
-		value, _ := m.sess.Get(f.Key)
-
-		row := pad(f.Label, labelWidth+2)
-		if c, ok := m.sess.Color(f.Key); ok {
-			row += swatch(c) + " "
-		}
-		row += pad(value, valueWidth+2)
-
-		switch {
-		case m.sess.Missing(f.Key):
-			// A theme naming an icon set nobody has installed renders and
-			// deploys perfectly; the only symptom is that nothing changes.
-			row += m.styles.fail.Render("not installed")
-		case m.sess.Overridden(f.Key):
-			row += m.styles.changed.Render("changed")
-		case !f.Explicit(m.sess.Draft):
-			row += m.styles.derived.Render("derived")
-		}
-
-		prefix := "  "
-		if i == cursor {
-			prefix = m.styles.rowCursor.Render("▸ ")
-		}
-
-		line := pad(row, width-2)
-		if i == cursor && m.pane == paneFields {
-			line = m.styles.rowActive.Render(line)
-		}
-		b.WriteString(truncate(prefix+line, width) + "\n")
+		b.WriteString(m.fieldRow(fields[i], layout, width,
+			i == cursor, i == cursor && m.pane == paneFields) + "\n")
 	}
 
 	if detail := m.viewFieldDetail(width); detail != "" {
 		b.WriteString("\n" + detail)
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// columns is how wide each part of a field row should be, measured across the
+// whole list so nothing runs into what follows it.
+type columns struct{ label, value int }
+
+// measure sizes the columns to their longest entry.
+func (m *model) measure(fields []session.Field) columns {
+	c := columns{value: 8}
+	for _, f := range fields {
+		if n := len(f.Label); n > c.label {
+			c.label = n
+		}
+		if n := len(f.Display(m.sess.Resolved())); n > c.value {
+			c.value = n
+		}
+	}
+	return c
+}
+
+// fieldRow renders one editable field. Both panes use it, so a colour has a
+// swatch and a missing theme is marked wherever it is edited.
+func (m *model) fieldRow(f session.Field, layout columns, width int, cursor, focused bool) string {
+	value, _ := m.sess.Get(f.Key)
+	if value == "" {
+		value = "—"
+	}
+
+	row := pad(f.Label, layout.label+2)
+	if c, ok := m.sess.Color(f.Key); ok {
+		row += swatch(c) + " "
+	}
+	row += pad(value, layout.value+2)
+
+	switch {
+	case m.sess.Missing(f.Key):
+		// A theme naming an icon set nobody has installed renders and deploys
+		// perfectly; the only symptom is that nothing changes.
+		row += m.styles.fail.Render("not installed ")
+	case m.sess.Overridden(f.Key):
+		row += m.styles.changed.Render("changed ")
+	case !f.Explicit(m.sess.Draft):
+		row += m.styles.derived.Render("derived ")
+	default:
+		row += pad("", 14)
+	}
+	if f.Help != "" {
+		row += m.styles.subtle.Render(f.Help)
+	}
+
+	prefix := "  "
+	if cursor {
+		prefix = m.styles.rowCursor.Render("▸ ")
+	}
+
+	line := pad(row, width-2)
+	if focused {
+		line = m.styles.rowActive.Render(line)
+	}
+	return truncate(prefix+line, width)
 }
 
 // viewFieldDetail shows what the focused field means in practice: for a

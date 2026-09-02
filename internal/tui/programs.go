@@ -296,45 +296,23 @@ func (m *model) viewProgramDetail(width int) string {
 	b.WriteString(m.styles.title.Render(name) + "\n")
 	b.WriteString(truncate(m.previewLine(name), width) + "\n\n")
 
+	if note := session.Note(name); note != "" {
+		b.WriteString(m.styles.subtle.Render(truncate(note, width)) + "\n\n")
+	}
+
 	fields := session.ProgramFields(name)
 	if len(fields) == 0 {
-		b.WriteString(m.styles.subtle.Render("No settings for this program yet."))
+		b.WriteString(m.styles.subtle.Render("Nothing to set here; preview and copy still work."))
 		return b.String()
 	}
 
-	labelWidth, valueWidth := 0, 10
-	for _, f := range fields {
-		if n := len(f.Label); n > labelWidth {
-			labelWidth = n
-		}
-		if n := len(f.Display(m.sess.Resolved())); n > valueWidth {
-			valueWidth = n
-		}
-	}
-
+	layout := m.measure(fields)
 	cursor := m.programFieldCursor()
 	visible, offset := m.windowWith(len(fields), cursor, 10)
+
 	for i := offset; i < offset+visible; i++ {
-		f := fields[i]
-		value, _ := m.sess.Get(f.Key)
-		if value == "" {
-			value = "—"
-		}
-
-		row := pad(f.Label, labelWidth+2) + pad(value, valueWidth+2)
-		if m.sess.Overridden(f.Key) {
-			row += m.styles.changed.Render("changed ")
-		}
-		row = pad(row, labelWidth+valueWidth+13) + m.styles.subtle.Render(f.Help)
-
-		prefix := "  "
-		if i == cursor {
-			prefix = m.styles.rowCursor.Render("▸ ")
-		}
-		if i == cursor && m.programPane == paneFields {
-			row = m.styles.rowActive.Render(pad(row, width-2))
-		}
-		b.WriteString(truncate(prefix+row, width) + "\n")
+		b.WriteString(m.fieldRow(fields[i], layout, width,
+			i == cursor, i == cursor && m.programPane == paneFields) + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

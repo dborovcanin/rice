@@ -26,7 +26,6 @@ var (
 
 func buildProgramFields() {
 	programFields = map[string][]Field{
-		"sway":     swayFields(),
 		"waybar":   waybarFields(),
 		"rofi":     rofiFields(),
 		"foot":     footFields(),
@@ -43,6 +42,18 @@ func buildProgramFields() {
 	}
 }
 
+// notes explain a program whose settings are not where you would look for
+// them. Sway is the desktop rather than an application on it, so its settings
+// are in the global SwayFX section.
+var notes = map[string]string{
+	"sway": "the compositor's settings are in the global SwayFX section",
+	"gtk":  "how GTK applications look comes from the theme; these are the files Rice writes",
+	"qt":   "how Qt applications look comes from the theme; these are the files Rice writes",
+}
+
+// Note is a line explaining a program whose settings are elsewhere, or empty.
+func Note(component string) string { return notes[component] }
+
 // programKeys maps a field key to its field, so a lookup by key works for
 // program fields as well as theme fields.
 var programKeys = map[string]Field{}
@@ -56,44 +67,29 @@ func lookupProgramField(key string) (Field, bool) {
 
 // Small constructors, so the tables below read as data.
 
+// These build configuration fields, so they set StoreConfig explicitly.
+// StoreTheme is the zero value, and a field saved to the wrong file is silently
+// lost rather than loudly wrong.
+
 func pInt(key, label, help string, min, max, step float64, get func(*Draft) *int) Field {
 	return Field{
-		Key: key, Label: label, Help: help, Kind: KindInt,
+		Key: key, Label: label, Help: help, Kind: KindInt, Store: StoreConfig,
 		Min: min, Max: max, Step: step, num: get,
 	}
 }
 
 func pBool(key, label, help string, get func(*Draft) *bool) Field {
-	return Field{Key: key, Label: label, Help: help, Kind: KindBool, flag: get}
+	return Field{Key: key, Label: label, Help: help, Kind: KindBool, Store: StoreConfig, flag: get}
 }
 
 func pText(key, label, help string, get func(*Draft) *string) Field {
-	return Field{Key: key, Label: label, Help: help, Kind: KindText, text: get}
+	return Field{Key: key, Label: label, Help: help, Kind: KindText, Store: StoreConfig, text: get}
 }
 
 func pChoice(key, label, help string, choices []string, get func(*Draft) *string) Field {
-	return Field{Key: key, Label: label, Help: help, Kind: KindChoice, Choices: choices, text: get}
-}
-
-func swayFields() []Field {
-	return []Field{
-		pText("sway.mod", "Modifier", "the key every binding hangs off",
-			func(d *Draft) *string { return &d.Config.Sway.Mod }),
-		pText("sway.wallpaper", "Wallpaper", "path to the default background image",
-			func(d *Draft) *string { return &d.Config.Sway.Wallpaper }),
-		pChoice("sway.wallpaper_mode", "Wallpaper mode", "how the image fills the output",
-			[]string{"stretch", "fill", "fit", "center", "tile", "solid_color"},
-			func(d *Draft) *string { return &d.Config.Sway.WallpaperMode }),
-		pBool("sway.smart_borders", "Smart borders", "hide borders when a workspace has one window",
-			func(d *Draft) *bool { return &d.Config.Sway.SmartBorders }),
-		pBool("sway.smart_gaps", "Smart gaps", "hide gaps when a workspace has one window",
-			func(d *Draft) *bool { return &d.Config.Sway.SmartGaps }),
-		pBool("sway.focus_follows_mouse", "Focus follows mouse", "",
-			func(d *Draft) *bool { return &d.Config.Sway.FocusFollowsMouse }),
-		pBool("sway.titlebar", "Titlebars", "draw a titlebar on tiled windows",
-			func(d *Draft) *bool { return &d.Config.Sway.Titlebar }),
-		pBool("sway.write_environment", "Session environment", "write environment.d/50-rice.conf; needs a re-login",
-			func(d *Draft) *bool { return &d.Config.Sway.WriteEnvironment }),
+	return Field{
+		Key: key, Label: label, Help: help, Kind: KindChoice,
+		Store: StoreConfig, Choices: choices, text: get,
 	}
 }
 
@@ -129,8 +125,10 @@ func rofiFields() []Field {
 	}
 }
 
+// footFields leads with the shared ANSI palette: it is what a terminal is for,
+// and it is the first thing anyone wants to change about one.
 func footFields() []Field {
-	return []Field{
+	behaviour := []Field{
 		pBool("foot.server", "Server mode", "generate configuration for footserver and footclient",
 			func(d *Draft) *bool { return &d.Config.Foot.Server }),
 		pText("foot.shell", "Shell", "empty means the login shell",
@@ -149,6 +147,8 @@ func footFields() []Field {
 		pBool("foot.cursor_blink", "Cursor blink", "",
 			func(d *Draft) *bool { return &d.Config.Foot.CursorBlink }),
 	}
+
+	return append(TerminalFields(), behaviour...)
 }
 
 func gtkFields() []Field {
@@ -157,6 +157,8 @@ func gtkFields() []Field {
 			func(d *Draft) *bool { return &d.Config.GTK.Settings }),
 		pBool("gtk.css", "Palette stylesheet", "map the palette onto libadwaita's named colors",
 			func(d *Draft) *bool { return &d.Config.GTK.CSS }),
+		pBool("sway.write_environment", "Session environment", "write environment.d/50-rice.conf; needs a re-login",
+			func(d *Draft) *bool { return &d.Config.Sway.WriteEnvironment }),
 	}
 }
 

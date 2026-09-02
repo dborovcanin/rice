@@ -18,14 +18,17 @@ still prints help rather than opening an interface.
 ## Screens
 
 ```text
-Theme picker  ──enter──►  Editor  ──g──►  Programs
-                            │                │
-                            │                ├── p  preview
-                            │                └── y  copy
+Theme picker  ──enter──►  Global  ──g──►  Apps
+                            │               │
+   pick what to start from  │               ├── p  preview this app
+                            │               ├── v  view what it generates
+                            │               └── y  copy its config
                             │
                             ├── s  save as a user theme
                             └── a  save and apply
 ```
+
+Pick a theme, adjust what the whole desktop shares, then go app by app.
 
 `q` or `esc` goes back a screen; `q` on the picker leaves.
 
@@ -43,17 +46,40 @@ loudly.
 
 ---
 
-## Editor
+## Global
 
-Groups on the left, fields on the right. `tab` moves between them.
+What the whole desktop shares. Sections on the left, fields on the right;
+`tab` moves between them.
 
-| Group | Holds |
+| Section | Holds |
 | --- | --- |
 | Colors | The semantic palette: background, surface, foreground, primary, … |
-| Terminal | The 16 ANSI slots, cursor, selection and URL colors |
 | Fonts | UI, mono and bar families and sizes |
-| Sizing | Radius, borders, gaps, padding, opacity, blur, dim |
+| SwayFX | The compositor: geometry, effects, behaviour, keyboard, touchpad, idle |
 | Icons & Cursor | Icon theme and size, cursor theme and size, GTK theme, Kvantum theme, Qt style |
+
+Anything that belongs to one application is not here — it is under that
+application. The 16 ANSI colours, for instance, are under the terminal.
+
+### SwayFX
+
+The compositor is the desktop rather than an application on it, so all of it
+is here rather than in the app list:
+
+* **Geometry and effects** — radius, border width, gaps, padding, opacity,
+  blur radius and passes and noise, shadow, dim inactive.
+* **Behaviour** — modifier key, wallpaper and how it fills the output,
+  titlebars, smart borders, smart gaps, focus follows mouse.
+* **Keyboard** — xkb layout, variant and options, repeat delay and rate.
+* **Touchpad** — tap, tap button map, natural scroll, disable while typing,
+  middle emulation, drag lock, acceleration profile.
+* **Idle** — whether swayidle runs, and the lock, screen-off and sleep
+  timeouts.
+
+The geometry is appearance and saves to the theme; the behaviour is structure
+and saves to `config.toml`. They share a section because they are one
+question — what is the window manager like — and the marker beside each field
+tells you which is which.
 
 | Key | Does |
 | --- | --- |
@@ -142,8 +168,11 @@ a typo does not pass quietly.
 
 ## Programs
 
-Programs on the left, that program's settings on the right. `tab` moves
-between them.
+Apps on the left, that app's settings on the right. `tab` moves between them.
+
+Apps sit flat under the global section for now; grouping them by category —
+terminal, launcher, notifications — comes later, when there are enough of them
+to need it. [Adding one](adding-a-program.md) is a checklist.
 
 | Key | Does |
 | --- | --- |
@@ -173,10 +202,15 @@ where they are already comfortable to edit by hand.
 
 | Program | Settings |
 | --- | --- |
-| `sway` | Modifier, wallpaper and mode, smart borders and gaps, focus follows mouse, titlebars |
+| `sway` | None — the compositor is in the global SwayFX section. Preview and copy still work |
 | `waybar` | Position, layer, height, spacing |
 | `rofi` | Width, lines, columns, icons and icon theme, drun label |
-| `foot` | Server mode, shell, TERM, scrollback, padding, cursor style and blink |
+| `foot` | **The 16 ANSI colours**, selection, cursor and URL, then server mode, shell, TERM, scrollback, padding, cursor style and blink |
+
+The ANSI palette is under the terminal because that is what reads it. It is
+still part of the theme and saves to the theme file, so a second terminal
+emulator would show the same sixteen colours — there is one palette, not one
+per terminal.
 | `dunst` | Origin, size, offset, gap, follow, the three timeouts, max icon size |
 | `swaylock` | Image and scaling, blur, indicator radius and thickness, failed attempts, clock |
 | `gtk` | Whether to write `settings.ini` and the palette stylesheet |

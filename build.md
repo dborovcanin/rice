@@ -25,6 +25,8 @@ pushed; `make check` passes at each commit.
 | Show the draft's diff from inside the editor | `d` in the editor |
 | Give a derived theme everything an image cannot say | inheritance for `from-image`, no empty template values |
 | Document adding a program | `docs/adding-a-program.md` |
+| Size the editor's value column to its content | layout fix |
+| Restructure the editor around global and apps | Terminal moved under foot, SwayFX section, `Store` |
 
 ## The one design decision worth knowing about
 
@@ -36,6 +38,31 @@ everything derived from it. It cost `theme.ParseSource`, `Store.LoadSource`,
 `theme.Encode`, and it paid for itself twice: once in the editor, once in
 `from-image`, which can leave two thirds of a theme unset because normalization
 will fill it in.
+
+## The editor's shape
+
+```text
+theme  →  global  →  app by app
+```
+
+**Global** is what the whole desktop shares: Colors, Fonts, SwayFX, Icons &
+Cursor. **Apps** sit flat below it; grouping them by category comes when there
+are enough to need it.
+
+The rule that decides where a setting goes is *who reads it*, not what kind of
+value it is. The sixteen ANSI colours are appearance and live in the theme
+file, but only a terminal reads them, so they are edited under the terminal.
+The compositor is the desktop rather than an application on it, so all of Sway
+is in the global SwayFX section and the app list carries only its preview.
+
+That split forced `session.Field.Store`, which says which file a field saves
+to. Dirty tracking follows it rather than which table a field was declared in;
+without that, a palette edit made under the terminal would not mark the theme
+dirty and would be dropped on save. There is a test for exactly that.
+
+`StoreTheme` is the zero value, so the configuration constructors set
+`StoreConfig` explicitly rather than a later pass trying to infer it — a field
+saved to the wrong file is silently lost rather than loudly wrong.
 
 ## Try it in this order
 
