@@ -1524,6 +1524,36 @@ Dependency detection can initially use:
 exec.LookPath(...)
 ```
 
+## As built
+
+`doctor` is an alias of `status` rather than a second command. The two would
+have printed the same configuration, ownership and dependency sections, and a
+second command that mostly repeats the first is a maintenance cost with no
+user benefit. Whichever name you reach for, you get the whole report.
+
+`internal/doctor` adds the part `status` could not answer: whether what a theme
+*asks for* exists on the machine.
+
+* fonts, resolved through `fc-list`, with fontconfig aliases such as
+  `monospace` accepted rather than looked up;
+* icon and cursor themes, looked for across the XDG data directories plus the
+  legacy `~/.icons`;
+* the GTK theme, with Adwaita and the other built-ins accepted without a
+  directory — they ship inside GTK, and warning about the default would flag
+  the most likely correct answer;
+* the Kvantum theme, when Kvantum is turned on;
+* `XCURSOR_THEME`, `XCURSOR_SIZE` and `QT_QPA_PLATFORMTHEME`, compared against
+  what Rice generates.
+
+A missing font is a warning, never an error: the desktop still works, it just
+does not look like the theme. A check that could not run at all — no
+fontconfig — reports unknown rather than missing, because Rice must not claim a
+font is absent when it simply could not look.
+
+This closes the loop on toolkit integration: the usual reason a correct
+configuration has no effect is that the session has not restarted, and that is
+now something Rice says out loud.
+
 ---
 
 # 34. Desktop Utilities

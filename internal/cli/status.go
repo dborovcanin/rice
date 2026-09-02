@@ -3,13 +3,27 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
+	"github.com/dborovcanin/rice/internal/doctor"
 	"github.com/dborovcanin/rice/internal/generation"
 	"github.com/dborovcanin/rice/internal/ownership"
 )
+
+// writeChecks renders a set of doctor findings as aligned rows.
+func writeChecks(w io.Writer, checks []doctor.Check) {
+	for _, c := range checks {
+		if c.Detail == "" {
+			fmt.Fprintf(w, "  %s %s\t%s\n", c.Level.Marker(), c.Name, c.Value)
+			continue
+		}
+		fmt.Fprintf(w, "  %s %s\t%s\t%s\n", c.Level.Marker(), c.Name, c.Value, c.Detail)
+	}
+}
 
 // dependencies are the programs Rice generates configuration or bindings for.
 // Missing ones are reported, never installed.
@@ -37,7 +51,12 @@ func newStatusCmd(app func() *App) *cobra.Command {
 		Short:   "Report configuration, ownership and dependency state",
 		Long: "Prints what Rice sees: the active theme and generation, which\n" +
 			"application configuration paths Rice owns, which it would refuse to\n" +
-			"touch, and which supporting programs are installed.\n\n" +
+			"touch, which supporting programs are installed, whether the fonts and\n" +
+			"icon, cursor, GTK and Kvantum themes the theme names actually exist,\n" +
+			"and whether this session carries the environment the toolkits read.\n\n" +
+			"A theme that names a font nobody has installed still renders, validates\n" +
+			"and deploys: everything looks correct except the desktop. That is what\n" +
+			"the asset and session checks are for.\n\n" +
 			"Status only reads. It never changes anything, so it is the safe way to\n" +
 			"find out where things stand.",
 		Example: `  rice status
@@ -133,7 +152,21 @@ func newStatusCmd(app func() *App) *cobra.Command {
 					fmt.Fprintf(w, "  ! %s\tmissing %v\n", dep.name, missing)
 				}
 			}
-			return w.Flush()
+			w.Flush()
+
+			// A theme that names a font or an icon set nobody has installed
+			// renders, validates and deploys perfectly. Everything looks right
+			// except the desktop, so these are the checks worth having.
+			if themeErr == nil {
+				fmt.Fprintln(out, "\nTheme assets")
+				writeChecks(w, doctor.Assets(cmd.Context(), a.Runner, th, cfg))
+				w.Flush()
+
+				fmt.Fprintln(out, "\nSession")
+				writeChecks(w, doctor.Session(cfg, th, os.Getenv))
+				w.Flush()
+			}
+			return nil
 		},
 	}
 	return cmd

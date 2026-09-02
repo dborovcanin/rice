@@ -155,6 +155,13 @@ skipping it.
 rice apply --no-reload      # deploy without poking anything
 ```
 
+`rice status` (or `rice doctor`) reports whether the fonts and the icon,
+cursor, GTK and Kvantum themes a theme names are actually installed, and
+whether this session carries `XCURSOR_THEME`, `XCURSOR_SIZE` and
+`QT_QPA_PLATFORMTHEME`. A theme that names a font nobody has installed renders,
+validates and deploys perfectly — everything looks right except the desktop —
+so that is the check worth running when something looks wrong.
+
 Foot deserves a note: a running terminal keeps its palette, and the foot server
 only applies a new one to terminals opened afterwards. Open a new terminal to
 see a theme change, or restart the server.

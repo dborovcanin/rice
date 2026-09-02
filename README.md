@@ -140,7 +140,9 @@ rice apply --no-switch           # build without changing current
 rice apply --no-reload           # deploy without poking running applications
 rice apply --theme tokyo-night   # build with another theme, once
 
-rice status                      # theme, generations, ownership, dependencies
+rice status                      # theme, generations, ownership, dependencies,
+                                 # and whether the theme's assets exist
+rice doctor                      # same thing, under the name you reached for
 rice setup                       # what deploying would do; changes nothing
 rice setup --adopt               # back up existing files, then link
 rice setup --adopt --force       # also take over symlinks Rice does not own
