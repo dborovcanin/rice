@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -13,6 +14,25 @@ import (
 // Parse decodes, normalizes and validates a theme in one step. Invalid themes
 // never reach the renderer.
 func Parse(data []byte, source string) (Theme, error) {
+	t, err := ParseSource(data, source)
+	if err != nil {
+		return Theme{}, err
+	}
+
+	t.Normalize()
+	if err := t.Validate(); err != nil {
+		return Theme{}, err
+	}
+	return t, nil
+}
+
+// ParseSource decodes a theme exactly as written, without filling in defaults.
+// Unset fields stay zero, which is how the file records "derive this for me".
+//
+// Editing tools want this form: normalizing first would materialize every
+// derived value, and an edit to a semantic color could then no longer reach
+// the values derived from it.
+func ParseSource(data []byte, source string) (Theme, error) {
 	var t Theme
 
 	dec := toml.NewDecoder(strings.NewReader(string(data)))
@@ -24,11 +44,6 @@ func Parse(data []byte, source string) (Theme, error) {
 	if t.Name == "" {
 		t.Name = NameFromPath(source)
 	}
-
-	t.Normalize()
-	if err := t.Validate(); err != nil {
-		return Theme{}, err
-	}
 	return t, nil
 }
 
@@ -39,6 +54,23 @@ func ParseFile(path string) (Theme, error) {
 		return Theme{}, fmt.Errorf("read theme: %w", err)
 	}
 	return Parse(data, path)
+}
+
+// ParseSourceFile reads a theme from disk in its source form.
+func ParseSourceFile(path string) (Theme, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Theme{}, fmt.Errorf("read theme: %w", err)
+	}
+	return ParseSource(data, path)
+}
+
+// Resolved returns a normalized, renderable copy of the theme, leaving the
+// receiver in its source form.
+func (t Theme) Resolved() Theme {
+	t.Icons.Paths = slices.Clone(t.Icons.Paths)
+	t.Normalize()
+	return t
 }
 
 // NameFromPath derives a theme name from its file name, so

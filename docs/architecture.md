@@ -140,17 +140,41 @@ and reloads only what was already adopted; it never adopts on its own.
 [deployment.md](deployment.md) documents the ownership states and the
 guarantees in full.
 
+## The interactive editor
+
+`rice tui` is a view over `internal/session`, which holds a draft theme and the
+operations on it. The editor itself holds only cursor position, focus and
+filter text; every value the user changes goes through the session, which is
+where that logic is tested.
+
+The session keeps the draft in **source form** — exactly as a theme file is
+written, with unset fields still unset — and normalizes a copy for rendering.
+That is what makes editing behave like editing the file: a value the theme
+leaves derived keeps following whatever it is derived from, and a value the
+theme spells out does not move on its own. The editor shows which is which.
+
+Previewing renders the draft into a private directory under the system
+temporary directory and runs the real application against it. That is separate
+from `rice preview`: a sandbox never moves `current` and never touches
+`~/.config`, so the running desktop is unaffected until the draft is applied.
+
+A future graphical editor would be a second view over the same session, not a
+second implementation.
+
 ## Not implemented yet
 
 * **Preview** — a mutable `preview/` generation for live editing, committed or
   cancelled explicitly, so slider movements do not create hundreds of
-  generations.
-* **GTK / Qt** — toolkit integration. The theme already carries `[gtk]`, but no
-  template consumes it.
+  generations. The editor's sandbox preview is a different thing: it never
+  moves `current`.
+* **Per-program overrides** — the editor's program screen previews and copies
+  today; editing a single program's settings there comes next.
+* **GTK / Qt** — toolkit integration. The theme already carries `[gtk]` and
+  `icons.size`, but no template consumes `[gtk]`.
 * **Desktop utilities** — `rice run volume|brightness|screenshot|...`, so
   bindings stop pointing at ad-hoc shell scripts.
 * **`rice theme from-image`** — deriving a palette from a wallpaper.
-* **GUI** — a theme editor over the same core.
+* **GUI** — a graphical editor over the same session layer.
 
 ## Invariants
 

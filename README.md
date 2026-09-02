@@ -24,10 +24,10 @@ application configuration: nothing depends on Rice being installed to work.
 
 Working: themes, templates, adapters, output validation, generations, `current`
 switching, rollback, ownership detection, adoption with backups, deployment by
-symlink, reload and uninstall.
+symlink, reload, uninstall, and the interactive editor.
 
-Not yet: live preview, GTK/Qt integration, the `rice run` desktop utilities, and
-a GUI.
+Not yet: per-program overrides in the editor, live preview as a committed
+generation, GTK/Qt integration, the `rice run` desktop utilities, and a GUI.
 
 Nothing under `~/.config` is touched until you run `rice setup --adopt`, and
 that command is a dry run without the flag.
@@ -73,6 +73,7 @@ The binary is self-contained: templates and themes are embedded, so no
 
 ```bash
 make build
+./build/rice                       # pick and tweak a theme interactively
 ./build/rice init                  # write ~/.config/rice/config.toml
 ./build/rice apply                 # build a generation and make it current
 ./build/rice setup                 # show what deploying would do — changes nothing
@@ -105,9 +106,27 @@ original location and its backup are recorded, so `rice uninstall` puts
 everything back. See [docs/deployment.md](docs/deployment.md) for exactly what
 is and is not touched.
 
+## The interactive editor
+
+```bash
+rice                             # or: rice tui
+```
+
+Pick a theme, adjust its colors, fonts, sizing, icons and cursor, then preview
+any component by running the real application against the draft — Foot, Rofi,
+Waybar or a nested Sway, rendered into a private temporary directory. Nothing
+under `~/.config` is touched and `current` does not move unless you apply.
+
+The editor also copies a single program's generated configuration to the
+clipboard, so Rice is usable as a configuration generator without adopting the
+rest of the ricing system.
+
+Full key reference in [docs/editor.md](docs/editor.md).
+
 ## Commands
 
 ```bash
+rice tui                         # the interactive editor (also bare `rice`)
 rice init                        # write config.toml (--force to overwrite)
 rice apply                       # build a generation, switch, redeploy, reload
 rice apply -m "bigger gaps"      # record a description in the manifest
@@ -173,6 +192,7 @@ Generations are immutable. Edits belong in `config.toml` or a theme, followed by
 
 | Page | Covers |
 | --- | --- |
+| [docs/editor.md](docs/editor.md) | The interactive editor, key by key |
 | [docs/deployment.md](docs/deployment.md) | Ownership, adoption, backups, reload, uninstall |
 | [docs/configuration.md](docs/configuration.md) | Every `config.toml` key |
 | [docs/themes.md](docs/themes.md) | The theme format and what gets derived |

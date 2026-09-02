@@ -80,18 +80,45 @@ func (s *Store) List() ([]Entry, error) {
 	return out, nil
 }
 
-// Load resolves a theme by name, or by path when the name looks like one.
+// Load resolves a theme by name, or by path when the name looks like one, and
+// returns it normalized and validated.
 func (s *Store) Load(name string) (Theme, error) {
+	data, path, err := s.read(name)
+	if err != nil {
+		return Theme{}, err
+	}
+	return Parse(data, path)
+}
+
+// LoadSource is Load without normalization, returning the theme exactly as it
+// is written. Editors want this form so that derived values stay derived.
+func (s *Store) LoadSource(name string) (Theme, error) {
+	data, path, err := s.read(name)
+	if err != nil {
+		return Theme{}, err
+	}
+	return ParseSource(data, path)
+}
+
+// read resolves a theme name to its bytes: a path if it looks like one, then
+// the user directory, then the bundled themes.
+func (s *Store) read(name string) ([]byte, string, error) {
 	if looksLikePath(name) {
-		return ParseFile(name)
+		data, err := os.ReadFile(name)
+		if err != nil {
+			return nil, "", fmt.Errorf("read theme: %w", err)
+		}
+		return data, name, nil
 	}
 
 	if s.UserDir != "" {
 		path := filepath.Join(s.UserDir, name+".toml")
-		if _, err := os.Stat(path); err == nil {
-			return ParseFile(path)
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return Theme{}, fmt.Errorf("stat theme %s: %w", path, err)
+		data, err := os.ReadFile(path)
+		if err == nil {
+			return data, path, nil
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, "", fmt.Errorf("read theme %s: %w", path, err)
 		}
 	}
 
@@ -99,14 +126,14 @@ func (s *Store) Load(name string) (Theme, error) {
 		path := filepath.Join(s.BuiltinRoot, name+".toml")
 		data, err := fs.ReadFile(s.Builtin, path)
 		if err == nil {
-			return Parse(data, path)
+			return data, path, nil
 		}
 		if !errors.Is(err, fs.ErrNotExist) {
-			return Theme{}, fmt.Errorf("read builtin theme %s: %w", path, err)
+			return nil, "", fmt.Errorf("read builtin theme %s: %w", path, err)
 		}
 	}
 
-	return Theme{}, fmt.Errorf("%w: %s", ErrNotFound, name)
+	return nil, "", fmt.Errorf("%w: %s", ErrNotFound, name)
 }
 
 func looksLikePath(name string) bool {

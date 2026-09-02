@@ -76,6 +76,7 @@ func (t Theme) Validate() error {
 		{"ui.blur_radius", t.UI.BlurRadius},
 		{"ui.blur_passes", t.UI.BlurPasses},
 		{"ui.shadow_blur", t.UI.ShadowBlur},
+		{"icons.size", t.Icons.Size},
 	}
 	for _, n := range nonNegative {
 		if n.value < 0 {

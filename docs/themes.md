@@ -162,6 +162,7 @@ well.
 ```toml
 [icons]
 theme = "Papirus-Dark"
+size = 24
 paths = [
   "/usr/share/icons/Papirus-Dark/16x16/status",
   "/usr/share/icons/hicolor/48x48/apps",
@@ -179,8 +180,9 @@ qt_style_override = "kvantum"
 ```
 
 `icons.theme` feeds Dunst and, unless `rofi.icon_theme` overrides it, Rofi.
-`icons.paths` is Dunst's icon lookup path. `cursor` becomes the Sway seat cursor
-theme. `[gtk]` is parsed and available to templates as `.GTK`, but no built-in
+`icons.size` is the pixel size icons are drawn at, and is what Rofi sizes its
+launcher icons from; it defaults to 24. `icons.paths` is Dunst's icon lookup
+path. `cursor` becomes the Sway seat cursor theme. `[gtk]` is parsed and available to templates as `.GTK`, but no built-in
 template uses it yet: it is there for the GTK/Qt integration that comes with
 deployment.
 

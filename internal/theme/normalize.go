@@ -44,6 +44,9 @@ func (t *Theme) Normalize() {
 	t.normalizeUI()
 	t.normalizeFonts()
 
+	if t.Icons.Size == 0 {
+		t.Icons.Size = 24
+	}
 	if t.Cursor.Size == 0 {
 		t.Cursor.Size = 24
 	}

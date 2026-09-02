@@ -10,6 +10,8 @@
   the adoption manifest, reload behaviour per application, and uninstall.
 * **[templates.md](templates.md)** — overriding a template, the context
   templates see, the full function set, and how generated output is validated.
+* **[editor.md](editor.md)** — the interactive editor: picking and tweaking a
+  theme, what derived means, previewing a program, copying a config, saving.
 * **[architecture.md](architecture.md)** — how the four kinds of state fit
   together, why generation is transactional, and what is not implemented yet.
 

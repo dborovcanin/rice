@@ -28,9 +28,11 @@ func NewRootCmd() *cobra.Command {
 			"Foot, Dunst and swaylock from one theme and one source configuration.\n\n" +
 			"Appearance lives in a theme; structure lives in config.toml. Each change\n" +
 			"produces an immutable generation, and `current` selects the active one.\n\n" +
-			"Rice currently writes only inside its own root. Deploying the generated\n" +
-			"files into ~/.config is not implemented yet.",
-		Example: `  # First run.
+			"Run with no arguments on a terminal to open the interactive editor.",
+		Example: `  # Pick and edit a theme interactively.
+  rice
+
+  # First run.
   rice init
   rice apply
 
@@ -44,6 +46,7 @@ func NewRootCmd() *cobra.Command {
   # Try everything against a throwaway root.
   rice --root /tmp/rice-test init
   rice --root /tmp/rice-test apply`,
+		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -53,6 +56,14 @@ func NewRootCmd() *cobra.Command {
 			}
 			app = a
 			return nil
+		},
+		// Bare `rice` opens the editor when there is a terminal to draw on,
+		// and prints help otherwise, so piping it still behaves like a CLI.
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !interactive() {
+				return cmd.Help()
+			}
+			return runTUI(cmd, app, "")
 		},
 	}
 
@@ -64,6 +75,7 @@ func NewRootCmd() *cobra.Command {
 	get := func() *App { return app }
 
 	cmd.AddCommand(
+		newTUICmd(get),
 		newInitCmd(get),
 		newApplyCmd(get),
 		newRenderCmd(get),

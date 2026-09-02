@@ -168,6 +168,14 @@ Clipboard:           wl-copy, with xclip/xsel fallback
 GUI:                 deferred until after v1.0
 ```
 
+As built, the three Charm modules are the only new direct dependencies.
+`bubbles/textinput` pulls `atotto/clipboard` in transitively; it is unused by
+Rice, which does its own clipboard work through the `command` package, and it
+adds no cgo.
+
+Truecolor detection reads `COLORTERM` rather than importing `termenv`, so the
+direct dependency list stays at three.
+
 Dependencies should remain minimal.
 
 Prefer the Go standard library wherever it provides sufficient functionality.
@@ -1186,6 +1194,28 @@ size = 24
 ```
 
 Application-specific values should be derived from the shared model where practical.
+
+## Source form and resolved form
+
+A theme file is the **source form**: an unset field means "derive this for me".
+Normalization produces the **resolved form**, with every derived value filled
+in, and that is what renders.
+
+Both forms matter, and the distinction is load-bearing for the editor:
+
+```text
+theme.Store.Load        source ──normalize──► resolved   (rendering, `theme show`)
+theme.Store.LoadSource  source                           (editing)
+```
+
+An editor that held the resolved form could not tell a value the author wrote
+from one Rice computed, so editing a semantic color would stop reaching
+everything derived from it. The editor therefore edits the source form and
+normalizes a copy for display and rendering.
+
+Every optional field is tagged `omitempty`, so writing a theme back out
+preserves its holes rather than materializing them. Zero already means "unset"
+throughout the format, so the tag encodes a convention that was there already.
 
 ---
 
@@ -2237,48 +2267,79 @@ returns the exact previous generation.
 
 # 47. Phase 4 — TUI
 
-**Target: 4–7 engineering days**
-
 Split so the session layer lands and is tested before any terminal code exists.
+Everything but 4e is done; the acceptance run below passes.
 
 ## 4a — Session layer
 
-* [ ] `internal/session` draft state over a base theme.
-* [ ] Field-level mutation, dirty tracking and reset-to-base.
-* [ ] Draft validation reusing `theme.Validate`.
-* [ ] Save draft as a user theme.
-* [ ] Unit tests, no terminal involved.
+* [x] `internal/session` draft state over a base theme.
+* [x] Field-level mutation, dirty tracking and reset-to-base.
+* [x] Draft validation reusing `theme.Validate`.
+* [x] Save draft as a user theme.
+* [x] Unit tests, no terminal involved.
+
+The draft is held in **source form**, not resolved form — see section 28. That
+was not in the original plan and is the one design change worth knowing about:
+without it, editing `colors.background` could not move the values derived from
+it, and the editor could not tell an authored value from a computed one.
+
+Consequences, all shipped:
+
+* `theme.ParseSource`, `theme.Store.LoadSource` and `Theme.Resolved()`.
+* `omitempty` on every optional theme field, so a saved theme keeps its holes.
+* `Session.Explicit` and `Session.Clear`, exposed in the editor as the
+  "derived" marker and the `c` key.
 
 ## 4b — Sandbox preview
 
-* [ ] Render the draft into `/tmp/rice-preview/<pid>/`.
-* [ ] Launch table per component, guarded by binary presence.
-* [ ] Cleanup on process exit, including the crash path.
-* [ ] Foot, Rofi, Waybar and nested Sway first.
-* [ ] Dunst and swaylock only once their conflicts are handled.
+* [x] Render the draft into a private directory under the temporary directory.
+* [x] Launch table per component, guarded by binary presence.
+* [x] Cleanup on process exit, including the crash path.
+* [x] Foot, Rofi, Waybar and nested Sway first.
+* [x] Dunst refused with a reason; swaylock behind a confirmation.
+
+Two details differ from the sketch:
+
+* The sandbox is `os.MkdirTemp` under `/tmp/rice-preview`, mode 0700, not a
+  predictable `<pid>` directory. The root is world-writable, so a predictable
+  name is a symlink-attack surface for no benefit.
+* `command.Runner` gained `Pipe` (stdin, for the clipboard) and `Start` (a
+  long-lived process with no timeout, for a preview). A previewed application
+  outlives `DefaultTimeout`, so it cannot go through `Run`.
 
 ## 4c — Supporting packages
 
-* [ ] `internal/fonts` — `fc-list` enumeration, dedupe, mono filter, cache.
-* [ ] `internal/clipboard` — `wl-copy` with `xclip`/`xsel` fallback.
-* [ ] `icons.size` added to the theme model and consumed by Rofi and GTK/Qt.
+* [x] `internal/fonts` — `fc-list` enumeration, dedupe, mono filter, cache.
+* [x] `internal/clipboard` — `wl-copy` with `xclip`/`xsel` fallback.
+* [x] `icons.size` added to the theme model and consumed by Rofi.
+
+Enumeration uses `fc-list --format=%{family[0]}\n`, and `:spacing=100` for the
+monospace set. GTK/Qt consumption of `icons.size` waits for phase 6.
 
 ## 4d — Terminal interface
 
-* [ ] `rice tui`, plus bare `rice` on an interactive terminal.
-* [ ] Theme picker with palette swatches.
-* [ ] Global editor: colors, terminal palette, fonts, sizing, icons, cursor.
-* [ ] Color fields with swatches, contrast samples and lightness nudges.
-* [ ] Font picker with fuzzy filter and monospace-first ordering.
-* [ ] Preview and copy actions per component.
-* [ ] Save, apply, discard.
-* [ ] Truecolor detection with an honest message when unsupported.
+* [x] `rice tui`, plus bare `rice` on an interactive terminal.
+* [x] Theme picker with palette swatches.
+* [x] Global editor: colors, terminal palette, fonts, sizing, icons, cursor.
+* [x] Color fields with swatches, contrast samples and lightness nudges.
+* [x] Font picker with filtering and monospace-first ordering.
+* [x] Preview and copy actions per component.
+* [x] Save, apply, discard.
+* [x] Truecolor detection with an honest message when unsupported.
+
+The editor styles itself from the draft, so the palette being edited is visible
+in the interface drawing it. Applying is injected from the command layer as a
+function, so `internal/tui` never reaches generations, deployment or reload.
 
 ## 4e — Per-program editors
 
-* [ ] Program list derived from the adapter registry.
+* [x] Program list derived from the adapter registry.
+* [x] Preview and copy from inside a program screen.
 * [ ] Per-program overrides on the same session layer.
-* [ ] Preview and copy from inside a program screen.
+
+Overrides are the remaining piece. They need a place to live: `config.toml`
+holds per-program structure today, and the session deliberately does not edit
+it. Deciding that is the first task of the next phase of editor work.
 
 Acceptance:
 
