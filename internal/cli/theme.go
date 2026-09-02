@@ -17,7 +17,8 @@ func newThemeCmd(app func() *App) *cobra.Command {
 			"of the same name.",
 		Example: `  rice theme list
   rice theme show tokyo-night
-  rice theme apply tokyo-night`,
+  rice theme apply tokyo-night
+  rice theme from-image ~/Pictures/wallpaper.jpg`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
@@ -28,6 +29,7 @@ func newThemeCmd(app func() *App) *cobra.Command {
 		newThemeShowCmd(app),
 		newThemeCurrentCmd(app),
 		newThemeApplyCmd(app),
+		newThemeFromImageCmd(app),
 	)
 	return cmd
 }

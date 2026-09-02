@@ -198,6 +198,42 @@ configuration decision: see [`[gtk]`](configuration.md#gtk) and
 
 ---
 
+## Deriving a theme from an image
+
+```bash
+rice theme from-image ~/Pictures/wallpaper.jpg           # print it
+rice theme from-image ~/Pictures/wallpaper.jpg --save    # keep it
+```
+
+The image supplies a background, a readable foreground and three accents.
+Everything this page describes as derived is left unset, so the result reads
+like a hand-written theme and keeps following its own semantic colours.
+
+Three things are enforced rather than hoped for:
+
+* **Contrast.** The foreground is pushed until it clears a 7:1 ratio against
+  the background. A wallpaper is no excuse for an unreadable terminal. Override
+  with `--min-contrast`.
+* **Meaning.** `success`, `warning` and `error` keep their own hues and borrow
+  only the palette's saturation and lightness. A green that is not green is
+  worse than one that does not match the wallpaper.
+* **Determinism.** The same image always produces the same theme. A palette
+  that changes between runs is not a theme.
+
+| Flag | Does |
+| --- | --- |
+| `--name` | Theme name; defaults to the image's file name |
+| `--variant` | Force `dark` or `light`; by default the image decides |
+| `--colors` | How many colours to quantize to (default 12) |
+| `--min-contrast` | Lowest acceptable foreground contrast ratio (default 7) |
+| `--save` | Write into the theme directory instead of printing |
+| `--force` | Overwrite an existing theme of the same name |
+
+PNG and JPEG are supported. The quantizer is plain Go — no matugen, no external
+tool — so this works wherever Rice does.
+
+---
+
 ## Bundled themes
 
 | Name | Notes |

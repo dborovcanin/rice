@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
-
 	"github.com/dborovcanin/rice/internal/clipboard"
 	"github.com/dborovcanin/rice/internal/generation"
+	"github.com/dborovcanin/rice/internal/theme"
 )
 
 // ComponentFiles renders one component's files from the draft.
@@ -66,9 +65,9 @@ func (s *Session) ComponentText(component string) (string, error) {
 // ThemeText renders the draft as a theme file, for someone who wants the
 // palette rather than a generated configuration.
 func (s *Session) ThemeText() (string, error) {
-	data, err := toml.Marshal(cloneTheme(s.Draft.Theme))
+	data, err := theme.Encode(cloneTheme(s.Draft.Theme))
 	if err != nil {
-		return "", fmt.Errorf("encode theme: %w", err)
+		return "", err
 	}
 	return string(data), nil
 }

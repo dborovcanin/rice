@@ -16,8 +16,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
-
 	"github.com/dborovcanin/rice/internal/adapter"
 	"github.com/dborovcanin/rice/internal/command"
 	"github.com/dborovcanin/rice/internal/config"
@@ -346,9 +344,9 @@ func (s *Session) SaveTheme(name string) (string, error) {
 
 	// The source form is written, not the resolved one, so a saved theme reads
 	// like a hand-written file and its derived values stay derived.
-	data, err := toml.Marshal(out)
+	data, err := theme.Encode(out)
 	if err != nil {
-		return "", fmt.Errorf("encode theme: %w", err)
+		return "", err
 	}
 
 	if err := os.MkdirAll(s.themesDir, 0o755); err != nil {

@@ -2044,6 +2044,36 @@ Matugen must not become the internal Rice theme representation.
 
 Rice owns the normalized theme model.
 
+## As built: no Matugen
+
+The quantizer is plain Go in `internal/palette`, so this works wherever Rice
+does and adds no dependency, external tool or cgo. Matugen would have been an
+install step and a second opinion about what a theme is.
+
+The derivation emits a theme in **source form**, with everything derivable left
+unset. An image can say what the background and the accents are; it cannot say
+what `surface_alt` should be relative to `surface`, or how the sixteen ANSI
+slots relate to the palette. Those are better computed than counted out of
+pixels, and the source-form work from phase 4 is what makes leaving them out
+possible.
+
+Three properties are enforced rather than hoped for:
+
+* **Contrast.** The foreground is walked until it clears a 7:1 ratio against
+  the background, measured with the WCAG relative luminance rather than the
+  perceived brightness `theme.Color` reports.
+* **Meaning.** `success`, `warning` and `error` keep fixed hues and borrow only
+  the palette's saturation and lightness.
+* **Determinism.** Sampling walks a fixed stride and k-means is seeded from the
+  samples sorted by lightness, so the same image always gives the same theme.
+  Hue is averaged as a vector, because the mean of 350° and 10° is 0°.
+
+This also forced `theme.Encode`. go-toml cannot omit a fixed-size array, so an
+untouched ANSI palette was written as sixteen `#00000000` entries — which
+round-trips correctly but reads as broken and invites someone to "fix" it.
+`Encode` drops fully-unset arrays and the tables left empty by doing so, and is
+now what every path that writes a theme file uses.
+
 ---
 
 # 42. Testing Strategy
