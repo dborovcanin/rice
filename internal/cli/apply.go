@@ -75,6 +75,10 @@ type applyOptions struct {
 // runApply builds a generation, switches to it, then redeploys and reloads
 // whatever is already adopted.
 func runApply(cmd *cobra.Command, a *App, opts applyOptions) error {
+	if err := requireNoPreview(a, "applying"); err != nil {
+		return err
+	}
+
 	cfg, err := a.Config()
 	if err != nil {
 		return err

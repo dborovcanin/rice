@@ -80,7 +80,9 @@ func (s *Store) Next() (int, error) {
 	return list[len(list)-1].Number + 1, nil
 }
 
-// Current returns the generation `current` points at.
+// Current returns the generation `current` points at. While a preview is
+// active it points at no generation at all, which is reported as
+// ErrPreviewActive rather than as a malformed link.
 func (s *Store) Current() (int, error) {
 	target, err := os.Readlink(s.Paths.Current)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -88,6 +90,9 @@ func (s *Store) Current() (int, error) {
 	}
 	if err != nil {
 		return 0, fmt.Errorf("read current link: %w", err)
+	}
+	if filepath.Base(target) == previewLink {
+		return 0, ErrPreviewActive
 	}
 	return parseGeneration(filepath.Base(target))
 }
@@ -175,12 +180,7 @@ func (s *Store) Switch(number int) error {
 	}
 
 	if hadPrevious {
-		if err := os.MkdirAll(s.Paths.StateDir, 0o755); err != nil {
-			return fmt.Errorf("create state directory: %w", err)
-		}
-		if err := os.WriteFile(s.previousFile(), []byte(strconv.Itoa(previous)+"\n"), 0o644); err != nil {
-			return fmt.Errorf("record previous generation: %w", err)
-		}
+		return s.writePrevious(previous)
 	}
 	return nil
 }
@@ -205,6 +205,13 @@ func (s *Store) Prune(keep int) ([]int, error) {
 	}
 	if previous, err := s.Previous(); err == nil {
 		protected[previous] = true
+	}
+	// Pruning the generation a running preview would cancel back to would
+	// strand the preview with nowhere to return.
+	if s.PreviewActive() {
+		if state, err := s.PreviewState(); err == nil && state.Parent != 0 {
+			protected[state.Parent] = true
+		}
 	}
 
 	var removed []int

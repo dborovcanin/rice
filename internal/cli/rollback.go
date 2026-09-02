@@ -28,6 +28,9 @@ func newRollbackCmd(app func() *App) *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()
+			if err := requireNoPreview(a, "rolling back"); err != nil {
+				return err
+			}
 
 			target := 0
 			if len(args) == 1 {

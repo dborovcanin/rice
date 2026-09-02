@@ -2284,25 +2284,51 @@ must reliably alternate between complete desktop states.
 
 # 46. Phase 3 — Preview
 
-**Target: 1–2 engineering days**
-
-* [ ] Preview directory.
-* [ ] Preview parent tracking.
-* [ ] Preview activation.
-* [ ] Preview update.
-* [ ] Preview commit.
-* [ ] Preview cancel.
-* [ ] Crash recovery.
+* [x] Preview directory.
+* [x] Preview parent tracking.
+* [x] Preview activation.
+* [x] Preview update.
+* [x] Preview commit.
+* [x] Preview cancel.
+* [x] Crash recovery.
 * [ ] `fsnotify` live watch mode.
 
-Acceptance:
+Acceptance holds:
 
 ```bash
 rice preview gruvbox-dark
 rice preview cancel
 ```
 
-returns the exact previous generation.
+returns the exact previous generation, and leaves `previous` — where rollback
+goes — untouched.
+
+## As built
+
+**Committing rebuilds rather than promotes.** The preview directory is thrown
+away and an ordinary generation is built from the same theme. Rendering is
+deterministic, so the content matches — except the generation number stamped
+into every generated file, which a real build gets right and a promoted preview
+would have had to guess or rewrite.
+
+**A preview is not in the rollback chain.** Starting one does not record a
+previous generation, so `rice rollback` still means "the last generation I
+committed". `state/preview` holds the theme and the parent instead.
+
+**Conflicting operations are refused, not resolved.** `rice apply` and `rice
+rollback` under a running preview would move `current` away and leave the
+preview state describing something untrue, so they stop and name the two ways
+out. Pruning never removes the generation a preview would cancel back to.
+
+**A failed re-render leaves the running preview alone.** The render goes to a
+staging directory and is swapped in, the same way a generation is built.
+
+**Crash recovery is the absence of state, not a repair pass.** A preview whose
+state file is missing still cancels; it simply has no parent to return to.
+
+The `fsnotify` watch mode is still open, and is now less obviously worth
+building: the interactive editor covers iterating on a theme, and does it
+without touching the live desktop.
 
 ---
 

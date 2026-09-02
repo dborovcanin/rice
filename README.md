@@ -26,8 +26,8 @@ Working: themes, templates, adapters, output validation, generations, `current`
 switching, rollback, ownership detection, adoption with backups, deployment by
 symlink, reload, uninstall, GTK/Qt integration, and the interactive editor.
 
-Not yet: live preview as a committed generation, the `rice run` desktop
-utilities, and a GUI.
+Not yet: the `rice run` desktop utilities, wallpaper-derived themes, and a
+GUI.
 
 Nothing under `~/.config` is touched until you run `rice setup --adopt`, and
 that command is a dry run without the flag.
@@ -158,6 +158,11 @@ rice theme show                  # resolved values of the active theme
 rice theme show tokyo-night      # ... or of any other theme
 rice theme current
 rice theme apply tokyo-night     # set the theme in config.toml and build
+
+rice preview tokyo-night         # try it live, without creating a generation
+rice preview status              # what is running, and what cancel returns to
+rice preview commit -m "keep"    # turn the preview into a generation
+rice preview cancel              # put current back exactly where it was
 
 rice generation list             # history, newest first
 rice generation current

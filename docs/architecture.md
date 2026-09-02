@@ -163,15 +163,27 @@ temporary directory and runs the real application against it. That is separate
 from `rice preview`: a sandbox never moves `current` and never touches
 `~/.config`, so the running desktop is unaffected until the draft is applied.
 
+## Preview
+
+`rice preview <theme>` is the other kind: it renders into `preview/` and points
+`current` at it, so the whole desktop changes. Trying six themes should not
+leave six generations behind, so a preview takes no generation number, is never
+what rollback goes back to, and is rewritten in place.
+
+Committing one builds an ordinary generation from the same theme rather than
+promoting the preview directory. Rendering is deterministic, so the content is
+the same — except the generation number stamped into every file, which a real
+build gets right and a promoted preview would have had to guess.
+
+`state/preview` records the theme and the generation to return to. Applying or
+rolling back underneath a preview is refused rather than silently discarding
+it, and pruning never removes the generation a preview would cancel back to.
+
 A future graphical editor would be a second view over the same session, not a
 second implementation.
 
 ## Not implemented yet
 
-* **Preview** — a mutable `preview/` generation for live editing, committed or
-  cancelled explicitly, so slider movements do not create hundreds of
-  generations. The editor's sandbox preview is a different thing: it never
-  moves `current`.
 * **Desktop utilities** — `rice run volume|brightness|screenshot|...`, so
   bindings stop pointing at ad-hoc shell scripts.
 * **`rice theme from-image`** — deriving a palette from a wallpaper.
