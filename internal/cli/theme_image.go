@@ -21,6 +21,8 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 		contrast float64
 		save     bool
 		force    bool
+		apply    bool
+		wall     bool
 	)
 
 	cmd := &cobra.Command{
@@ -39,7 +41,10 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 			"The result is deterministic: the same image always gives the same\n" +
 			"theme. PNG and JPEG are supported.\n\n" +
 			"By default the theme is printed. Use --save to write it into the theme\n" +
-			"directory, where `rice theme apply` can find it.",
+			"directory, where `rice theme apply` can find it, or --apply to save it,\n" +
+			"select it and build a generation in one step.\n\n" +
+			"--wallpaper points config.toml at the same image, so the desktop and its\n" +
+			"palette come from one file.",
 		Example: `  # Look at what an image would give you.
   rice theme from-image ~/Pictures/wallpaper.jpg
 
@@ -47,7 +52,10 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
   rice theme from-image ~/Pictures/wallpaper.jpg --save
 
   # Name it, and force a light theme out of a dark image.
-  rice theme from-image wall.png --name desk --variant light --save`,
+  rice theme from-image wall.png --name desk --variant light --save
+
+  # The whole job: palette, wallpaper and a generation.
+  rice theme from-image ~/Pictures/wall.jpg --apply --wallpaper`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()
@@ -92,6 +100,10 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 				return err
 			}
 
+			// Applying and setting the wallpaper both need the theme on disk.
+			if apply || wall {
+				save = true
+			}
 			if !save {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s", data)
 				return nil
@@ -110,8 +122,43 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "Wrote %s\n", dest)
-			fmt.Fprintf(out, "Try it with `rice preview %s`, or keep it with `rice theme apply %s`.\n", name, name)
-			return nil
+
+			if !apply && !wall {
+				fmt.Fprintf(out, "Try it with `rice preview %s`, or keep it with `rice theme apply %s`.\n", name, name)
+				return nil
+			}
+
+			cfg, err := a.Config()
+			if err != nil {
+				return err
+			}
+			if wall {
+				// An absolute path, because config.toml is read from wherever
+				// Rice happens to be run.
+				absolute, err := filepath.Abs(path)
+				if err != nil {
+					return fmt.Errorf("resolve image path: %w", err)
+				}
+				cfg.Sway.Wallpaper = absolute
+				fmt.Fprintf(out, "Wallpaper set to %s\n", absolute)
+			}
+			if apply {
+				cfg.Theme = name
+			}
+			if err := writeConfig(a, cfg); err != nil {
+				return err
+			}
+			if apply {
+				fmt.Fprintf(out, "Theme set to %q\n", name)
+			}
+
+			if !apply {
+				fmt.Fprintf(out, "Run `rice apply` to build a generation with it.\n")
+				return nil
+			}
+			return runApply(cmd, a, applyOptions{
+				Description: "derived from " + filepath.Base(path),
+			})
 		},
 	}
 
@@ -121,6 +168,8 @@ func newThemeFromImageCmd(app func() *App) *cobra.Command {
 	cmd.Flags().Float64Var(&contrast, "min-contrast", 0, "lowest acceptable foreground contrast ratio")
 	cmd.Flags().BoolVar(&save, "save", false, "write the theme into the theme directory")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing theme of the same name")
+	cmd.Flags().BoolVar(&apply, "apply", false, "save the theme, select it and build a generation")
+	cmd.Flags().BoolVar(&wall, "wallpaper", false, "point config.toml at this image as the wallpaper")
 	return cmd
 }
 

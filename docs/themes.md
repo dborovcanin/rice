@@ -228,6 +228,16 @@ Three things are enforced rather than hoped for:
 | `--min-contrast` | Lowest acceptable foreground contrast ratio (default 7) |
 | `--save` | Write into the theme directory instead of printing |
 | `--force` | Overwrite an existing theme of the same name |
+| `--apply` | Save it, select it in `config.toml` and build a generation |
+| `--wallpaper` | Point `sway.wallpaper` at the same image |
+
+Together, those last two are the whole job in one command:
+
+```bash
+rice theme from-image ~/Pictures/wall.jpg --apply --wallpaper
+```
+
+The desktop and its palette then come from one file, which is the point.
 
 PNG and JPEG are supported. The quantizer is plain Go — no matugen, no external
 tool — so this works wherever Rice does.

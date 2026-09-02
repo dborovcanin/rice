@@ -165,6 +165,8 @@ rice preview cancel              # put current back exactly where it was
 
 rice theme from-image wall.jpg          # derive a theme from a wallpaper
 rice theme from-image wall.jpg --save   # ... and keep it
+rice theme from-image wall.jpg --apply --wallpaper
+                                 # ... and use it, image and all
 
 rice generation list             # history, newest first
 rice generation current
