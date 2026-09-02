@@ -64,6 +64,9 @@ func runTUI(cmd *cobra.Command, a *App, themeName string) error {
 		Config:    cfg,
 		ThemesDir: a.Paths.ThemesDir,
 		Version:   a.Builder.Version,
+		// What `current` points at, so the editor can show what the draft
+		// would change. It is read, never written.
+		CurrentDir: a.Paths.Current,
 		// Per-program settings live in config.toml, whose format and header
 		// belong to the command layer, so the editor is handed a writer.
 		WriteConfig: func(cfg config.Config) error { return writeConfig(a, cfg) },

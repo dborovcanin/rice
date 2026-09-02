@@ -423,7 +423,7 @@ func (m *model) helpLine() string {
 		return "↑↓ move · enter choose · q quit"
 	case screenEditor:
 		return "tab pane · ↑↓ move · enter edit · ←→ nudge · r reset · c clear · R reset all · " +
-			"g programs · t themes · y copy theme · s save · a apply · q back"
+			"d diff · g programs · t themes · y copy theme · s save · a apply · q back"
 	case screenPrograms:
 		return "tab pane · ↑↓ move · enter edit · ←→ change · r reset · " +
 			"p preview · v view · y copy · x stop · s save · esc back"

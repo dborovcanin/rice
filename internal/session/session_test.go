@@ -2,6 +2,7 @@ package session_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -20,6 +21,7 @@ import (
 	"github.com/dborovcanin/rice/internal/adapter/waybar"
 	"github.com/dborovcanin/rice/internal/command"
 	"github.com/dborovcanin/rice/internal/config"
+	"github.com/dborovcanin/rice/internal/generation"
 	"github.com/dborovcanin/rice/internal/render"
 	"github.com/dborovcanin/rice/internal/session"
 	"github.com/dborovcanin/rice/internal/theme"
@@ -610,5 +612,82 @@ func TestEmptyConfigurationSurvivesAThemeChange(t *testing.T) {
 
 	if got, _ := s.Get("rofi.lines"); got != "21" {
 		t.Errorf("rofi.lines = %q, want the edit carried across", got)
+	}
+}
+
+func TestDiffAgainstDeployed(t *testing.T) {
+	themesDir := t.TempDir()
+	store := theme.NewStore(themesDir, rice.Themes, "themes")
+	base, err := store.LoadSource("catppuccin-mocha")
+	if err != nil {
+		t.Fatalf("load theme: %v", err)
+	}
+
+	cfg := config.DefaultConfig()
+	cfg.Normalize()
+
+	registry := adapter.NewRegistry(
+		sway.New(), waybar.New(), rofi.New(),
+		foot.New(), dunst.New(), swaylock.New(), gtk.New(), qt.New(),
+	)
+	engine := render.NewEngine("", rice.Templates, "templates")
+
+	// Stand in for a deployed generation by building one.
+	deployed := t.TempDir()
+	builder := generation.NewBuilder(engine, registry, rice.Version)
+	resolved, err := store.Load("catppuccin-mocha")
+	if err != nil {
+		t.Fatalf("load resolved: %v", err)
+	}
+	if _, err := builder.Build(deployed, cfg, resolved, 7, generation.BuildOptions{}); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	s, err := session.New(base, session.Options{
+		Themes:     store,
+		Registry:   registry,
+		Engine:     engine,
+		Runner:     command.NewFake(),
+		Config:     cfg,
+		ThemesDir:  themesDir,
+		Version:    rice.Version,
+		CurrentDir: deployed,
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+
+	// An untouched draft matches what is deployed, including the generation
+	// number in every header.
+	out, err := s.Diff(3)
+	if err != nil {
+		t.Fatalf("Diff: %v", err)
+	}
+	if strings.TrimSpace(out) != "" {
+		t.Errorf("an untouched draft should show no difference:\n%s", out)
+	}
+
+	// One edit shows up, and only where it belongs.
+	if err := s.Set("terminal.background", "#010203"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	out, err = s.Diff(3)
+	if err != nil {
+		t.Fatalf("Diff: %v", err)
+	}
+	if !strings.Contains(out, "+background=010203") {
+		t.Errorf("the edit is missing from the diff:\n%s", out)
+	}
+	if strings.Contains(out, "waybar/config.jsonc") {
+		t.Errorf("an unrelated file appeared in the diff:\n%s", out)
+	}
+}
+
+func TestDiffNeedsSomethingToCompareWith(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	if _, err := s.Diff(3); !errors.Is(err, session.ErrNothingToCompare) {
+		t.Errorf("err = %v, want ErrNothingToCompare", err)
 	}
 }

@@ -35,7 +35,7 @@ func newRenderCmd(app func() *App) *cobra.Command {
   # Write the files somewhere.
   rice render -o /tmp/preview
 
-  # To see what would change, prefer `rice diff`.`,
+  # To see what would change instead, use rice diff.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := app()

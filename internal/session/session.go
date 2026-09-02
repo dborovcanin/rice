@@ -47,6 +47,9 @@ type Options struct {
 	// SandboxRoot is where preview renders go. Empty means a directory under
 	// the system temporary directory.
 	SandboxRoot string
+	// CurrentDir is the generation `current` points at. It is what the draft
+	// is compared against; empty means there is nothing to compare with.
+	CurrentDir string
 }
 
 // Session is a draft and everything needed to act on it.
@@ -71,6 +74,7 @@ type Session struct {
 	writeConfig func(config.Config) error
 
 	sandboxRoot string
+	currentDir  string
 	previews    []*Preview
 
 	// started records that SetBase has run at least once, which is what
@@ -116,6 +120,7 @@ func New(base theme.Theme, opts Options) (*Session, error) {
 		themesDir:   opts.ThemesDir,
 		writeConfig: opts.WriteConfig,
 		sandboxRoot: root,
+		currentDir:  opts.CurrentDir,
 	}
 	s.Base.Config = opts.Config
 	s.SetBase(base)

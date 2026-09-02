@@ -129,6 +129,9 @@ func (m *model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "y":
 		return m, m.copyTheme()
 
+	case "d":
+		return m, m.showDiff()
+
 	case "s":
 		m.overlay = saveOverlay(m.suggestedName(), false)
 		return m, nil
@@ -187,6 +190,24 @@ func (m *model) editField() (tea.Model, tea.Cmd) {
 
 	m.overlay = textOverlay(f, current)
 	return m, nil
+}
+
+// showDiff answers the question the editor cannot otherwise answer: not what
+// the draft says, but what applying it would actually change.
+func (m *model) showDiff() tea.Cmd {
+	text, err := m.sess.Diff(3)
+	if err != nil {
+		m.setStatus(levelBad, "%v", err)
+		return nil
+	}
+	if strings.TrimSpace(text) == "" {
+		m.setStatus(levelInfo, "the draft matches what is deployed")
+		return nil
+	}
+
+	m.overlay = viewOverlayOf("what applying would change", text)
+	m.setStatus(levelInfo, "showing the difference against the deployed generation")
+	return nil
 }
 
 func (m *model) copyTheme() tea.Cmd {

@@ -63,6 +63,7 @@ Groups on the left, fields on the right. `tab` moves between them.
 | `r` | Reset the field to the base theme |
 | `c` | Clear the field so it is derived again |
 | `R` | Discard every change |
+| `d` | Show what applying the draft would change, as a diff |
 | `y` | Copy the draft theme file to the clipboard |
 | `s` | Save as a user theme |
 | `a` | Save and apply |
@@ -71,6 +72,11 @@ Groups on the left, fields on the right. `tab` moves between them.
 
 The editor draws itself in the palette being edited, so a change to the
 background or the primary color is visible immediately in its own chrome.
+
+`d` answers the question the field list cannot: not what the draft says, but
+what applying it would actually change. It renders the draft against the
+deployed generation and shows a unified diff — the same comparison `rice diff`
+makes, without leaving the editor.
 
 ### Changed and derived
 

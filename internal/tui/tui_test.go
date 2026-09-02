@@ -748,3 +748,15 @@ func TestNotInstalledThemesAreMarked(t *testing.T) {
 		t.Error("the editor does not show that the icon theme is absent")
 	}
 }
+
+func TestEditorShowsWhatApplyingWouldChange(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter")
+
+	// With nothing deployed there is nothing to compare against, and the
+	// editor has to say so rather than show an empty view.
+	press(t, m, "d")
+	if m.overlay.kind != overlayNone || m.level != levelBad {
+		t.Errorf("with nothing deployed: overlay %v, status %q", m.overlay.kind, m.status)
+	}
+}
