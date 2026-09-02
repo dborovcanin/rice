@@ -1,0 +1,67 @@
+name = "rose-pine"
+description = "Soho vibes: muted plum base with rose and pine accents."
+variant = "dark"
+
+[colors]
+background = "#191724"
+surface = "#1f1d2e"
+surface_alt = "#26233a"
+overlay = "#403d52"
+
+foreground = "#e0def4"
+muted = "#908caa"
+
+primary = "#c4a7e7"
+secondary = "#ebbcba"
+accent = "#9ccfd8"
+
+success = "#31748f"
+warning = "#f6c177"
+error = "#eb6f92"
+
+border = "#26233a"
+border_focus = "#c4a7e7"
+
+[terminal]
+foreground = "#e0def4"
+background = "#191724"
+regular = ["#26233a", "#eb6f92", "#31748f", "#f6c177", "#9ccfd8", "#c4a7e7", "#ebbcba", "#e0def4"]
+bright = ["#6e6a86", "#eb6f92", "#31748f", "#f6c177", "#9ccfd8", "#c4a7e7", "#ebbcba", "#e0def4"]
+selection_foreground = "#e0def4"
+selection_background = "#403d52"
+cursor = "#e0def4"
+url = "#9ccfd8"
+
+[ui]
+radius = 10
+border_width = 2
+gaps_inner = 10
+gaps_outer = 5
+padding = 6
+horizontal_padding = 12
+opacity = 0.94
+blur_radius = 6
+blur_passes = 2
+blur_noise = 0.02
+
+[fonts]
+ui_family = "Inter"
+ui_size = 11
+mono_family = "JetBrainsMono Nerd Font"
+mono_size = 12
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Dark"
+size = 24
+
+[cursor]
+theme = "Bibata-Modern-Ice"
+size = 24
+
+[gtk]
+theme = "Adwaita-dark"
+prefer_dark = true
+kvantum_theme = "KvGnomeDark"
+qt_style_override = "kvantum"

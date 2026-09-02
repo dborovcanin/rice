@@ -68,13 +68,26 @@ What the whole desktop shares.
 Anything that belongs to one application is not here — it is under that
 application. The 16 ANSI colours, for instance, are under the terminal.
 
+### Searching
+
+`/` narrows the current section to settings whose name or key matches. SwayFX
+alone is nearly forty settings, and walking to the one you want is slower than
+typing three letters of it.
+
+Both the label and the key match, so `gaps` finds *Gaps inner* and `sway.idle`
+pulls every idle setting together. `enter` keeps the filter and hands the keys
+back to the list; `esc` clears it. Moving to another section clears it too — a
+filter carried across would show the new section as empty.
+
 ### SwayFX
 
 The compositor is the desktop rather than an application on it, so all of it
 is here rather than in the app list:
 
-* **Geometry and effects** — radius, border width, gaps, padding, opacity,
-  blur radius and passes and noise, shadow, dim inactive.
+* **Borders** — width, and the border and focused-border colours, which is
+  what a window frame actually looks like.
+* **Geometry and effects** — radius, gaps, padding, opacity, blur radius and
+  passes and noise, shadow, dim inactive.
 * **Behaviour** — modifier key, wallpaper and how it fills the output,
   titlebars, smart borders, smart gaps, focus follows mouse.
 * **Keyboard** — xkb layout, variant and options, repeat delay and rate.
@@ -91,6 +104,7 @@ tells you which is which.
 | Key | Does |
 | --- | --- |
 | `↑` `↓` | Move |
+| `/` | Narrow this section to matching settings |
 | `enter` | Edit the field |
 | `←` `→` | Nudge: lightness for a color, one step for a number |
 | `r` | Reset the field to the base theme |

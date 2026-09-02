@@ -1,0 +1,67 @@
+name = "rose-pine-dawn"
+description = "Soho vibes at daybreak: warm paper with rose and pine accents."
+variant = "light"
+
+[colors]
+background = "#faf4ed"
+surface = "#fffaf3"
+surface_alt = "#f2e9e1"
+overlay = "#dfdad9"
+
+foreground = "#575279"
+muted = "#9893a5"
+
+primary = "#907aa9"
+secondary = "#d7827e"
+accent = "#56949f"
+
+success = "#286983"
+warning = "#ea9d34"
+error = "#b4637a"
+
+border = "#dfdad9"
+border_focus = "#907aa9"
+
+[terminal]
+foreground = "#575279"
+background = "#faf4ed"
+regular = ["#f2e9e1", "#b4637a", "#286983", "#ea9d34", "#56949f", "#907aa9", "#d7827e", "#575279"]
+bright = ["#797593", "#b4637a", "#286983", "#ea9d34", "#56949f", "#907aa9", "#d7827e", "#575279"]
+selection_foreground = "#575279"
+selection_background = "#dfdad9"
+cursor = "#575279"
+url = "#56949f"
+
+[ui]
+radius = 10
+border_width = 2
+gaps_inner = 10
+gaps_outer = 5
+padding = 6
+horizontal_padding = 12
+opacity = 0.97
+blur_radius = 6
+blur_passes = 2
+blur_noise = 0.02
+
+[fonts]
+ui_family = "Inter"
+ui_size = 11
+mono_family = "JetBrainsMono Nerd Font"
+mono_size = 12
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Light"
+size = 24
+
+[cursor]
+theme = "Bibata-Modern-Classic"
+size = 24
+
+[gtk]
+theme = "Adwaita"
+prefer_dark = false
+kvantum_theme = "KvGnome"
+qt_style_override = "kvantum"

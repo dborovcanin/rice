@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,7 +16,28 @@ import (
 func lookup(key string) (session.Field, bool) { return session.LookupField(key) }
 
 func (m *model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// While the search box has focus every printable key belongs to it, so it
+	// is handled before the shortcuts below.
+	if m.searching {
+		return m.updateSearch(msg)
+	}
+
 	switch msg.String() {
+	case "/":
+		m.searching = true
+		m.pane = paneFields
+		return m, m.search.Focus()
+
+	case "esc":
+		// Escape clears a filter before it leaves the editor, so narrowing a
+		// list is not a one-way door.
+		if m.search.Value() != "" {
+			m.clearSearch()
+			return m, nil
+		}
+		m.screen = screenPicker
+		return m, nil
+
 	case "tab", "shift+tab":
 		if m.pane == paneNav && len(m.fields()) > 0 {
 			m.pane = paneFields
@@ -104,7 +126,7 @@ func (m *model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		return m, m.showDiff()
 
-	case "t", "q", "esc":
+	case "t", "q":
 		m.screen = screenPicker
 		return m, nil
 
@@ -264,11 +286,20 @@ func (m *model) viewDetail(width int) string {
 			b.WriteString(m.styles.subtle.Render(truncate(note, width)) + "\n")
 		}
 	}
-	b.WriteString("\n")
 
 	fields := m.fields()
+	if m.searching || m.search.Value() != "" {
+		b.WriteString("\n" + m.search.View() + "  " +
+			m.styles.subtle.Render(fmt.Sprintf("%d of %d", len(fields), len(m.allFields()))))
+	}
+	b.WriteString("\n")
+
 	if len(fields) == 0 {
-		b.WriteString(m.styles.subtle.Render("Nothing to set here."))
+		if m.search.Value() != "" {
+			b.WriteString(m.styles.subtle.Render("Nothing matches. esc clears the search."))
+		} else {
+			b.WriteString(m.styles.subtle.Render("Nothing to set here."))
+		}
 		return b.String()
 	}
 

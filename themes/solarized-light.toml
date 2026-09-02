@@ -1,0 +1,67 @@
+name = "solarized-light"
+description = "Ethan Schoonover's precision palette, light background."
+variant = "light"
+
+[colors]
+background = "#fdf6e3"
+surface = "#eee8d5"
+surface_alt = "#e4ddc4"
+overlay = "#93a1a1"
+
+# Solarized names two text tones. Rice uses the emphasized one (base01) as
+# its foreground: the body tone (base00) is 4.13:1 on this background, below
+# the readability line. The ANSI palette below stays canonical.
+foreground = "#586e75"
+muted = "#839496"
+
+primary = "#268bd2"
+secondary = "#2aa198"
+accent = "#6c71c4"
+
+success = "#859900"
+warning = "#b58900"
+error = "#dc322f"
+
+border = "#eee8d5"
+border_focus = "#268bd2"
+
+[terminal]
+foreground = "#586e75"
+background = "#fdf6e3"
+regular = ["#073642", "#dc322f", "#859900", "#b58900", "#268bd2", "#d33682", "#2aa198", "#eee8d5"]
+bright = ["#002b36", "#cb4b16", "#586e75", "#657b83", "#839496", "#6c71c4", "#93a1a1", "#fdf6e3"]
+selection_foreground = "#586e75"
+selection_background = "#eee8d5"
+cursor = "#586e75"
+url = "#2aa198"
+
+[ui]
+radius = 4
+border_width = 2
+gaps_inner = 6
+gaps_outer = 3
+padding = 6
+horizontal_padding = 12
+opacity = 1.0
+
+[fonts]
+ui_family = "Inter"
+ui_size = 11
+mono_family = "JetBrainsMono Nerd Font"
+mono_size = 12
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Light"
+size = 24
+
+[cursor]
+theme = "Bibata-Modern-Classic"
+size = 24
+
+[gtk]
+theme = "Adwaita"
+prefer_dark = false
+kvantum_theme = "KvGnome"
+qt_style_override = "kvantum"

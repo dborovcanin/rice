@@ -85,8 +85,6 @@ func colorFields() []Field {
 		c("colors.success", "Success", func(d *Draft) *theme.Color { return &d.Theme.Colors.Success }),
 		c("colors.warning", "Warning", func(d *Draft) *theme.Color { return &d.Theme.Colors.Warning }),
 		c("colors.error", "Error", func(d *Draft) *theme.Color { return &d.Theme.Colors.Error }),
-		c("colors.border", "Border", func(d *Draft) *theme.Color { return &d.Theme.Colors.Border }),
-		c("colors.border_focus", "Border focus", func(d *Draft) *theme.Color { return &d.Theme.Colors.BorderFocus }),
 	}
 }
 
@@ -160,9 +158,18 @@ func swayFXFields() []Field {
 		return Field{Key: key, Label: label, Group: GroupSwayFX, Kind: KindFloat, Min: 0, Max: 1, Step: 0.01, Derives: true, frac: get}
 	}
 
+	// The border colours live here rather than under Colors: they are what a
+	// window border looks like, and the width is right next to them. They are
+	// still theme values and still save to the theme file.
+	border := func(key, label string, get func(*Draft) *theme.Color) Field {
+		return Field{Key: key, Label: label, Group: GroupSwayFX, Kind: KindColor, Derives: true, color: get}
+	}
+
 	geometry := []Field{
-		px("ui.radius", "Radius", 64, func(d *Draft) *int { return &d.Theme.UI.Radius }),
 		px("ui.border_width", "Border width", 32, func(d *Draft) *int { return &d.Theme.UI.BorderWidth }),
+		border("colors.border", "Border colour", func(d *Draft) *theme.Color { return &d.Theme.Colors.Border }),
+		border("colors.border_focus", "Border focus colour", func(d *Draft) *theme.Color { return &d.Theme.Colors.BorderFocus }),
+		px("ui.radius", "Radius", 64, func(d *Draft) *int { return &d.Theme.UI.Radius }),
 		px("ui.gaps_inner", "Gaps inner", 128, func(d *Draft) *int { return &d.Theme.UI.GapsInner }),
 		px("ui.gaps_outer", "Gaps outer", 128, func(d *Draft) *int { return &d.Theme.UI.GapsOuter }),
 		px("ui.padding", "Padding", 128, func(d *Draft) *int { return &d.Theme.UI.Padding }),

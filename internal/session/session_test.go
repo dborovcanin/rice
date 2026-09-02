@@ -924,3 +924,33 @@ func TestRofiOverridesArePickable(t *testing.T) {
 		}
 	}
 }
+
+// Border colour sits with border width, because that is where you are thinking
+// about borders — but it is still a theme value and still saves to the theme.
+func TestBorderColoursAreInTheSwayFXSection(t *testing.T) {
+	inSwayFX := map[string]session.Field{}
+	for _, f := range session.FieldsIn(session.GroupSwayFX) {
+		inSwayFX[f.Key] = f
+	}
+
+	for _, key := range []string{"colors.border", "colors.border_focus"} {
+		f, ok := inSwayFX[key]
+		if !ok {
+			t.Errorf("%s is not in the SwayFX section", key)
+			continue
+		}
+		if f.Kind != session.KindColor {
+			t.Errorf("%s is not a colour", key)
+		}
+		if f.Store != session.StoreTheme {
+			t.Errorf("%s should save to the theme", key)
+		}
+	}
+
+	// And not left behind in Colors as well.
+	for _, f := range session.FieldsIn(session.GroupColors) {
+		if strings.HasPrefix(f.Key, "colors.border") {
+			t.Errorf("%s is in both Colors and SwayFX", f.Key)
+		}
+	}
+}

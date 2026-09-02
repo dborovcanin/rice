@@ -3,6 +3,9 @@ package tui
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/dborovcanin/rice/internal/session"
 )
 
@@ -75,10 +78,14 @@ func (m *model) nav() navItem {
 
 // moveNav steps the cursor by delta, skipping headings, and stops at the ends
 // rather than wrapping past them.
+//
+// Moving clears the search: a filter carried into another section would show
+// it as empty, which reads as a section with nothing in it.
 func (m *model) moveNav(delta int) {
 	if len(m.items) == 0 {
 		return
 	}
+	m.clearSearch()
 
 	at := m.navCursor
 	for {
@@ -104,8 +111,9 @@ func firstSelectable(items []navItem) int {
 	return 0
 }
 
-// fields are the editable fields of whatever the navigation points at.
-func (m *model) fields() []session.Field {
+// allFields are every editable field of whatever the navigation points at,
+// before any filter.
+func (m *model) allFields() []session.Field {
 	switch item := m.nav(); item.kind {
 	case navGroup:
 		return session.FieldsIn(item.group)
@@ -113,6 +121,29 @@ func (m *model) fields() []session.Field {
 		return session.ProgramFields(item.app)
 	}
 	return nil
+}
+
+// fields are the fields on screen: what the navigation points at, narrowed by
+// the search. SwayFX alone is nearly forty settings, which is more than
+// anyone wants to walk through to reach one.
+func (m *model) fields() []session.Field {
+	all := m.allFields()
+
+	query := strings.ToLower(strings.TrimSpace(m.search.Value()))
+	if query == "" {
+		return all
+	}
+
+	// Both the label and the key are matched: "gaps" finds Gaps inner, and
+	// "sway.idle" finds every idle setting at once.
+	var out []session.Field
+	for _, f := range all {
+		if strings.Contains(strings.ToLower(f.Label), query) ||
+			strings.Contains(strings.ToLower(f.Key), query) {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 // fieldCursor is remembered per navigation item, because moving away and back
@@ -181,4 +212,40 @@ func (m *model) navWidth() int {
 		}
 	}
 	return width
+}
+
+// newSearchInput builds the field search box.
+func newSearchInput() textinput.Model {
+	in := textinput.New()
+	in.Placeholder = "narrow these settings"
+	in.CharLimit = 64
+	in.Width = 30
+	return in
+}
+
+// clearSearch drops the filter and takes focus off it.
+func (m *model) clearSearch() {
+	m.search.SetValue("")
+	m.search.Blur()
+	m.searching = false
+}
+
+// updateSearch handles keys while the search box has focus.
+func (m *model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.clearSearch()
+		return m, nil
+	case "enter":
+		// Keep the filter, but hand the keys back to the list.
+		m.search.Blur()
+		m.searching = false
+		m.pane = paneFields
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+	m.search, cmd = m.search.Update(msg)
+	m.setFieldCursor(m.fieldCursor())
+	return m, cmd
 }

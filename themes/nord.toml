@@ -1,0 +1,67 @@
+name = "nord"
+description = "Arctic, north-bluish palette with muted frost accents."
+variant = "dark"
+
+[colors]
+background = "#2e3440"
+surface = "#3b4252"
+surface_alt = "#434c5e"
+overlay = "#4c566a"
+
+foreground = "#d8dee9"
+muted = "#7b88a1"
+
+primary = "#88c0d0"
+secondary = "#81a1c1"
+accent = "#8fbcbb"
+
+success = "#a3be8c"
+warning = "#ebcb8b"
+error = "#bf616a"
+
+border = "#434c5e"
+border_focus = "#88c0d0"
+
+[terminal]
+foreground = "#d8dee9"
+background = "#2e3440"
+regular = ["#3b4252", "#bf616a", "#a3be8c", "#ebcb8b", "#81a1c1", "#b48ead", "#88c0d0", "#e5e9f0"]
+bright = ["#4c566a", "#bf616a", "#a3be8c", "#ebcb8b", "#81a1c1", "#b48ead", "#8fbcbb", "#eceff4"]
+selection_foreground = "#d8dee9"
+selection_background = "#434c5e"
+cursor = "#d8dee9"
+url = "#88c0d0"
+
+[ui]
+radius = 6
+border_width = 2
+gaps_inner = 8
+gaps_outer = 4
+padding = 6
+horizontal_padding = 12
+opacity = 0.96
+blur_radius = 4
+blur_passes = 2
+blur_noise = 0.02
+
+[fonts]
+ui_family = "Inter"
+ui_size = 11
+mono_family = "JetBrainsMono Nerd Font"
+mono_size = 12
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Dark"
+size = 24
+
+[cursor]
+theme = "Bibata-Modern-Ice"
+size = 24
+
+[gtk]
+theme = "Adwaita-dark"
+prefer_dark = true
+kvantum_theme = "KvGnomeDark"
+qt_style_override = "kvantum"

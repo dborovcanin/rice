@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,9 +33,13 @@ import (
 var update = flag.Bool("update", false, "rewrite the golden files")
 
 // goldenThemes are rendered in full against testdata/golden. Together they
-// cover the derivation paths: an explicit ANSI palette, opacity below 1, and
-// radius/gap variations.
-var goldenThemes = []string{"gruvbox-dark", "catppuccin-mocha", "tokyo-night"}
+// cover the derivation paths: an explicit ANSI palette, opacity below 1,
+// radius/gap variations, and a light variant — which takes a different branch
+// wherever a template asks whether the theme is dark.
+//
+// Every bundled theme is checked by TestEveryBundledThemeIsUsable and handed
+// to the real validators; goldens are for reading diffs, not for coverage.
+var goldenThemes = []string{"gruvbox-dark", "catppuccin-mocha", "tokyo-night", "catppuccin-latte"}
 
 func newBuilder() *generation.Builder {
 	engine := render.NewEngine("", rice.Templates, "templates")
@@ -362,7 +367,7 @@ func TestGeneratedConfigsPassTheirOwnValidators(t *testing.T) {
 
 	themes := theme.NewStore("", rice.Themes, "themes")
 
-	for _, name := range goldenThemes {
+	for _, name := range bundledThemes(t) {
 		t.Run(name, func(t *testing.T) {
 			th, err := themes.Load(name)
 			if err != nil {
@@ -458,4 +463,126 @@ func firstLines(s string, n int) string {
 		lines = lines[:n]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// contrastRatio is the WCAG ratio between two colours, from 1 to 21.
+func contrastRatio(a, b theme.Color) float64 {
+	lum := func(c theme.Color) float64 {
+		channel := func(v uint8) float64 {
+			f := float64(v) / 255
+			if f <= 0.04045 {
+				return f / 12.92
+			}
+			return math.Pow((f+0.055)/1.055, 2.4)
+		}
+		return 0.2126*channel(c.R) + 0.7152*channel(c.G) + 0.0722*channel(c.B)
+	}
+
+	la, lb := lum(a), lum(b)
+	if la < lb {
+		la, lb = lb, la
+	}
+	return (la + 0.05) / (lb + 0.05)
+}
+
+// bundledThemes is every theme Rice ships.
+func bundledThemes(t *testing.T) []string {
+	t.Helper()
+
+	entries, err := theme.NewStore("", rice.Themes, "themes").List()
+	if err != nil {
+		t.Fatalf("list themes: %v", err)
+	}
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name)
+	}
+	if len(names) == 0 {
+		t.Fatal("no bundled themes")
+	}
+	return names
+}
+
+// TestEveryBundledThemeIsUsable holds every shipped theme to the same standard,
+// so adding one cannot quietly ship a palette nobody can read.
+func TestEveryBundledThemeIsUsable(t *testing.T) {
+	builder := newBuilder()
+	cfg := config.DefaultConfig()
+	cfg.Normalize()
+
+	themes := theme.NewStore("", rice.Themes, "themes")
+
+	for _, name := range bundledThemes(t) {
+		t.Run(name, func(t *testing.T) {
+			th, err := themes.Load(name)
+			if err != nil {
+				t.Fatalf("load: %v", err)
+			}
+
+			// The variant has to match the background, or every consumer that
+			// branches on it — foot's colour section, the GTK dark hint —
+			// picks the wrong side.
+			wantDark := th.Colors.Background.IsDark()
+			if got := th.Variant == "dark"; got != wantDark {
+				t.Errorf("variant is %q but the background %s is dark=%v",
+					th.Variant, th.Colors.Background, wantDark)
+			}
+			if th.IsDark() != wantDark {
+				t.Errorf("IsDark() = %v, want %v", th.IsDark(), wantDark)
+			}
+
+			// Text has to be readable against its background. 4.5:1 is the
+			// WCAG AA threshold for body text; the AAA threshold of 7 would
+			// exclude palettes like Solarized that are deliberately low
+			// contrast, which is a design choice rather than a defect.
+			if got := contrastRatio(th.Colors.Foreground, th.Colors.Background); got < 4.5 {
+				t.Errorf("foreground/background contrast = %.2f, want at least 4.5", got)
+			}
+			if got := contrastRatio(th.Terminal.Foreground, th.Terminal.Background); got < 4.5 {
+				t.Errorf("terminal contrast = %.2f, want at least 4.5", got)
+			}
+
+			// Surfaces have to be distinguishable from the background, or the
+			// desktop is one flat sheet. They must also not overshoot into
+			// being unreadable.
+			for label, c := range map[string]theme.Color{
+				"surface": th.Colors.Surface, "surface_alt": th.Colors.SurfaceAlt,
+			} {
+				if c == th.Colors.Background {
+					t.Errorf("%s is identical to the background", label)
+				}
+				// Surfaces carry chrome and short labels rather than body
+				// text, so the large-text threshold applies.
+				if got := contrastRatio(th.Colors.Foreground, c); got < 3.5 {
+					t.Errorf("foreground on %s = %.2f, want at least 3.5", label, got)
+				}
+			}
+
+			// Muted text is meant to recede, not to vanish.
+			if got := contrastRatio(th.Colors.Muted, th.Colors.Background); got < 1.8 {
+				t.Errorf("muted contrast = %.2f, want at least 1.8", got)
+			}
+
+			// Every accent has to be visible against the background.
+			for label, c := range map[string]theme.Color{
+				"primary": th.Colors.Primary, "secondary": th.Colors.Secondary,
+				"accent": th.Colors.Accent, "success": th.Colors.Success,
+				"warning": th.Colors.Warning, "error": th.Colors.Error,
+			} {
+				// Accents mark and indicate rather than carry text, and a
+				// yellow on a light background is inherently around 2:1 —
+				// true of every light palette, not a fault of these. The bar
+				// is set to catch invisible, not to enforce readable.
+				if got := contrastRatio(c, th.Colors.Background); got < 1.8 {
+					t.Errorf("%s (%s) on the background = %.2f, want at least 1.8", label, c, got)
+				}
+			}
+
+			// And it has to render.
+			dir := t.TempDir()
+			if _, err := builder.Build(dir, cfg, th, 1, generation.BuildOptions{}); err != nil {
+				t.Fatalf("build: %v", err)
+			}
+		})
+	}
 }

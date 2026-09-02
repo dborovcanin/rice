@@ -1,0 +1,67 @@
+name = "catppuccin-latte"
+description = "Soft pastel light theme."
+variant = "light"
+
+[colors]
+background = "#eff1f5"
+surface = "#e6e9ef"
+surface_alt = "#dce0e8"
+overlay = "#ccd0da"
+
+foreground = "#4c4f69"
+muted = "#8c8fa1"
+
+primary = "#1e66f5"
+secondary = "#8839ef"
+accent = "#179299"
+
+success = "#40a02b"
+warning = "#df8e1d"
+error = "#d20f39"
+
+border = "#ccd0da"
+border_focus = "#1e66f5"
+
+[terminal]
+foreground = "#4c4f69"
+background = "#eff1f5"
+regular = ["#5c5f77", "#d20f39", "#40a02b", "#df8e1d", "#1e66f5", "#ea76cb", "#179299", "#acb0be"]
+bright = ["#6c6f85", "#d20f39", "#40a02b", "#df8e1d", "#1e66f5", "#ea76cb", "#179299", "#bcc0cc"]
+selection_foreground = "#4c4f69"
+selection_background = "#ccd0da"
+cursor = "#dc8a78"
+url = "#1e66f5"
+
+[ui]
+radius = 8
+border_width = 2
+gaps_inner = 8
+gaps_outer = 4
+padding = 6
+horizontal_padding = 12
+opacity = 0.97
+blur_radius = 4
+blur_passes = 2
+blur_noise = 0.02
+
+[fonts]
+ui_family = "Inter"
+ui_size = 11
+mono_family = "JetBrainsMono Nerd Font"
+mono_size = 12
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Light"
+size = 24
+
+[cursor]
+theme = "Bibata-Modern-Classic"
+size = 24
+
+[gtk]
+theme = "Adwaita"
+prefer_dark = false
+kvantum_theme = "KvGnome"
+qt_style_override = "kvantum"

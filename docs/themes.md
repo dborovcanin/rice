@@ -257,11 +257,28 @@ tool — so this works wherever Rice does.
 
 ## Bundled themes
 
-| Name | Notes |
-| --- | --- |
-| `gruvbox-dark` | Warm, low contrast, explicit ANSI palette |
-| `catppuccin-mocha` | Soft pastels, larger radius, two blur passes |
-| `tokyo-night` | Cool blues, high-contrast accents |
+| Name | Variant | Notes |
+| --- | --- | --- |
+| `catppuccin-mocha` | dark | Soft pastels, larger radius, two blur passes |
+| `catppuccin-latte` | light | The same palette in daylight |
+| `dracula` | dark | High contrast, vivid pastel accents |
+| `gruvbox-dark` | dark | Warm, low contrast, explicit ANSI palette |
+| `gruvbox-light` | light | The same warmth on cream paper |
+| `nord` | dark | Arctic, north-bluish, muted frost accents |
+| `rose-pine` | dark | Muted plum with rose and pine accents |
+| `rose-pine-dawn` | light | The same at daybreak, on warm paper |
+| `solarized-dark` | dark | Schoonover's precision palette |
+| `solarized-light` | light | The same on its light background |
+| `tokyo-night` | dark | Cool blues, high-contrast accents |
+
+Every bundled theme is held to the same standard by the test suite: its variant
+must match its background, text must clear the WCAG AA contrast ratio against
+what it sits on, surfaces must be distinguishable from the background, and the
+whole desktop must render and pass each application's own validator.
+
+Solarized is the one deliberate deviation. It names two text tones, and the
+body tone is below the readability line on its light background, so Rice uses
+the emphasized one as `foreground` and leaves the ANSI palette canonical.
 
 Copy one as a starting point:
 

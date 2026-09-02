@@ -1,0 +1,64 @@
+name = "gruvbox-light"
+description = "Warm retro palette on cream paper."
+variant = "light"
+
+[colors]
+background = "#fbf1c7"
+surface = "#f2e5bc"
+surface_alt = "#ebdbb2"
+overlay = "#d5c4a1"
+
+foreground = "#3c3836"
+muted = "#7c6f64"
+
+primary = "#b57614"
+secondary = "#076678"
+accent = "#427b58"
+
+success = "#79740e"
+warning = "#af3a03"
+error = "#9d0006"
+
+border = "#d5c4a1"
+border_focus = "#b57614"
+
+[terminal]
+foreground = "#3c3836"
+background = "#fbf1c7"
+regular = ["#fbf1c7", "#cc241d", "#98971a", "#d79921", "#458588", "#b16286", "#689d6a", "#7c6f64"]
+bright = ["#928374", "#9d0006", "#79740e", "#b57614", "#076678", "#8f3f71", "#427b58", "#3c3836"]
+selection_foreground = "#3c3836"
+selection_background = "#ebdbb2"
+cursor = "#af3a03"
+url = "#076678"
+
+[ui]
+radius = 4
+border_width = 2
+gaps_inner = 6
+gaps_outer = 3
+padding = 6
+horizontal_padding = 12
+opacity = 0.98
+
+[fonts]
+ui_family = "DejaVu Sans"
+ui_size = 11
+mono_family = "JetBrainsMonoNL Nerd Font"
+mono_size = 13
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Light"
+size = 24
+
+[cursor]
+theme = "BreezeX-Light"
+size = 28
+
+[gtk]
+theme = "Adwaita"
+prefer_dark = false
+kvantum_theme = "KvGnome"
+qt_style_override = "kvantum"

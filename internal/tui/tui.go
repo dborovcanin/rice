@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -94,6 +95,11 @@ type model struct {
 	navCursor    int
 	fieldCursors map[string]int
 
+	// search narrows the field list of the selected section. searching is
+	// whether keystrokes are going into it.
+	search    textinput.Model
+	searching bool
+
 	// programs are the enabled applications, in deployment order.
 	programs []string
 
@@ -132,6 +138,7 @@ func newModel(opts Options) (*model, error) {
 		sess:         opts.Session,
 		fieldCursors: map[string]int{},
 		running:      map[string]*session.Preview{},
+		search:       newSearchInput(),
 		// A terminal that never reports its size still gets a usable layout
 		// rather than an empty screen.
 		width:  80,
@@ -419,14 +426,17 @@ func (m *model) helpLine() string {
 	case screenPicker:
 		return "↑↓ move · enter choose · q quit"
 	case screenEditor:
+		if m.searching {
+			return "type to narrow · enter keep · esc clear"
+		}
 		// The keys that act on an application are only worth naming when one
 		// is selected, which keeps this line short enough to survive.
 		if _, isApp := m.app(); isApp {
-			return "tab pane · ↑↓ move · enter edit · ←→ change · r reset · " +
-				"p preview · v view · y copy · d diff · s save · a apply · t themes"
+			return "tab pane · ↑↓ move · / search · enter edit · ←→ change · r reset · " +
+				"p preview · v view · y copy · s save · a apply · t themes"
 		}
-		return "tab pane · ↑↓ move · enter edit · ←→ nudge · r reset · c clear · " +
-			"R reset all · d diff · y copy theme · s save · a apply · t themes"
+		return "tab pane · ↑↓ move · / search · enter edit · ←→ nudge · r reset · " +
+			"c clear · d diff · y copy theme · s save · a apply · t themes"
 	}
 	return ""
 }

@@ -1,0 +1,67 @@
+name = "dracula"
+description = "High-contrast dark theme with vivid pastel accents."
+variant = "dark"
+
+[colors]
+background = "#282a36"
+surface = "#343746"
+surface_alt = "#44475a"
+overlay = "#565a72"
+
+foreground = "#f8f8f2"
+muted = "#6272a4"
+
+primary = "#bd93f9"
+secondary = "#ff79c6"
+accent = "#8be9fd"
+
+success = "#50fa7b"
+warning = "#f1fa8c"
+error = "#ff5555"
+
+border = "#44475a"
+border_focus = "#bd93f9"
+
+[terminal]
+foreground = "#f8f8f2"
+background = "#282a36"
+regular = ["#21222c", "#ff5555", "#50fa7b", "#f1fa8c", "#bd93f9", "#ff79c6", "#8be9fd", "#f8f8f2"]
+bright = ["#6272a4", "#ff6e6e", "#69ff94", "#ffffa5", "#d6acff", "#ff92df", "#a4ffff", "#ffffff"]
+selection_foreground = "#f8f8f2"
+selection_background = "#44475a"
+cursor = "#f8f8f2"
+url = "#8be9fd"
+
+[ui]
+radius = 8
+border_width = 2
+gaps_inner = 8
+gaps_outer = 4
+padding = 6
+horizontal_padding = 12
+opacity = 0.95
+blur_radius = 5
+blur_passes = 2
+blur_noise = 0.02
+
+[fonts]
+ui_family = "Inter"
+ui_size = 11
+mono_family = "JetBrainsMono Nerd Font"
+mono_size = 12
+bar_family = "JetBrainsMono Nerd Font"
+bar_size = 11
+
+[icons]
+theme = "Papirus-Dark"
+size = 24
+
+[cursor]
+theme = "Bibata-Modern-Ice"
+size = 24
+
+[gtk]
+theme = "Adwaita-dark"
+prefer_dark = true
+kvantum_theme = "KvGnomeDark"
+qt_style_override = "kvantum"

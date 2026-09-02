@@ -830,3 +830,115 @@ func TestApplicationRowOffersItsPreview(t *testing.T) {
 		t.Errorf("help on a global section offers preview: %q", m.helpLine())
 	}
 }
+
+// SwayFX alone is nearly forty settings, which is more than anyone wants to
+// walk through to reach one.
+func TestSearchNarrowsTheFieldList(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter")
+	selectGroup(t, m, session.GroupSwayFX)
+
+	total := len(m.allFields())
+	if total < 20 {
+		t.Fatalf("SwayFX has %d fields, expected the long list this is for", total)
+	}
+
+	press(t, m, "/")
+	if !m.searching {
+		t.Fatal("/ should open the search")
+	}
+	typeText(t, m, "idle")
+
+	fields := m.fields()
+	if len(fields) == 0 || len(fields) >= total {
+		t.Fatalf("search matched %d of %d", len(fields), total)
+	}
+	for _, f := range fields {
+		if !strings.Contains(strings.ToLower(f.Label+f.Key), "idle") {
+			t.Errorf("%q does not match the search", f.Key)
+		}
+	}
+
+	// The key is matched too, so a prefix pulls a whole family together.
+	m.search.SetValue("touchpad")
+	for _, f := range m.fields() {
+		if !strings.HasPrefix(f.Key, "sway.touchpad.") {
+			t.Errorf("%q is not a touchpad setting", f.Key)
+		}
+	}
+
+	// Enter keeps the filter but hands keys back to the list.
+	m.search.SetValue("idle")
+	press(t, m, "enter")
+	if m.searching {
+		t.Error("enter should take focus off the search")
+	}
+	if m.search.Value() != "idle" {
+		t.Error("enter should keep the filter")
+	}
+	if len(m.fields()) >= total {
+		t.Error("the filter stopped applying")
+	}
+
+	// Escape clears it rather than leaving the editor, so narrowing is not a
+	// one-way door.
+	press(t, m, "esc")
+	if m.screen != screenEditor {
+		t.Error("esc with a filter should clear it, not leave")
+	}
+	if len(m.fields()) != total {
+		t.Errorf("after clearing, %d of %d fields", len(m.fields()), total)
+	}
+
+	// With no filter, escape leaves as before.
+	press(t, m, "esc")
+	if m.screen != screenPicker {
+		t.Error("esc with no filter should go back to the picker")
+	}
+}
+
+// Editing has to act on what is on screen, not on the unfiltered list beneath
+// it, or the wrong setting changes.
+func TestSearchEditsTheMatchedField(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter")
+	selectGroup(t, m, session.GroupSwayFX)
+
+	press(t, m, "/")
+	typeText(t, m, "gaps inner")
+	press(t, m, "enter")
+
+	f, ok := m.field()
+	if !ok || f.Key != "ui.gaps_inner" {
+		t.Fatalf("field = %q, want ui.gaps_inner", f.Key)
+	}
+
+	press(t, m, "enter")
+	m.overlay.input.SetValue("21")
+	press(t, m, "enter")
+
+	if got, _ := m.sess.Get("ui.gaps_inner"); got != "21" {
+		t.Errorf("gaps inner = %q, want 21", got)
+	}
+}
+
+// Moving to another section clears the search, because a filter carried across
+// would show the new section as empty.
+func TestSearchClearsWhenMovingSection(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter")
+	selectGroup(t, m, session.GroupSwayFX)
+
+	press(t, m, "/")
+	typeText(t, m, "idle")
+	press(t, m, "enter")
+	press(t, m, "tab") // back to the navigation
+	press(t, m, "down")
+
+	if m.search.Value() != "" {
+		t.Errorf("search = %q, want it cleared on moving section", m.search.Value())
+	}
+	if len(m.fields()) != len(m.allFields()) {
+		t.Error("the new section is still filtered")
+	}
+}

@@ -6,14 +6,19 @@ package theme
 func (t *Theme) Normalize() {
 	c := &t.Colors
 
+	// Surfaces step away from the background, which means lighter on a dark
+	// theme and darker on a light one. Always lightening would sink a light
+	// theme's surfaces into a white background and make them invisible.
+	step := t.away()
+
 	if c.Surface.IsZero() {
-		c.Surface = c.Background.Lighten(0.04)
+		c.Surface = step(c.Background, 0.04)
 	}
 	if c.SurfaceAlt.IsZero() {
-		c.SurfaceAlt = c.Surface.Lighten(0.06)
+		c.SurfaceAlt = step(c.Surface, 0.06)
 	}
 	if c.Overlay.IsZero() {
-		c.Overlay = c.SurfaceAlt.Lighten(0.06)
+		c.Overlay = step(c.SurfaceAlt, 0.06)
 	}
 	if c.Muted.IsZero() {
 		c.Muted = c.Foreground.Mix(c.Background, 0.45)
@@ -67,6 +72,18 @@ func (t *Theme) Normalize() {
 	t.GTK.PreferDark = t.GTK.PreferDark || t.IsDark()
 }
 
+// away returns the direction a derived shade should move to stay visible
+// against the background: lighter on a dark theme, darker on a light one.
+//
+// The variant is not settled yet when colours are derived, so this reads the
+// background rather than the field.
+func (t *Theme) away() func(Color, float64) Color {
+	if t.Colors.Background.IsDark() {
+		return Color.Lighten
+	}
+	return Color.Darken
+}
+
 // normalizeTerminal derives any unset ANSI slot from the semantic palette, so
 // a theme only has to spell out the 16 colors when it wants exact control.
 func (t *Theme) normalizeTerminal() {
@@ -80,6 +97,8 @@ func (t *Theme) normalizeTerminal() {
 		term.Foreground = c.Foreground
 	}
 
+	step := t.away()
+
 	derivedRegular := [8]Color{
 		c.Background,
 		c.Error,
@@ -88,7 +107,7 @@ func (t *Theme) normalizeTerminal() {
 		c.Primary,
 		c.Secondary,
 		c.Accent,
-		c.Foreground.Darken(0.15),
+		step(c.Foreground, 0.15),
 	}
 	for i := range term.Regular {
 		if term.Regular[i].IsZero() {
@@ -105,7 +124,9 @@ func (t *Theme) normalizeTerminal() {
 		case 7:
 			term.Bright[i] = c.Foreground
 		default:
-			term.Bright[i] = term.Regular[i].Lighten(0.2)
+			// "Bright" means "further from the background", not "lighter":
+			// a lighter bright red is invisible on a light theme.
+			term.Bright[i] = step(term.Regular[i], 0.2)
 		}
 	}
 
