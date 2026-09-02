@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Vet, test and format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # `make check` is vet, tests and a formatting check, which is the same
+      # thing a contributor runs locally.
+      - run: make check
+
+      - name: Check that go.mod is tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+  race:
+    name: Tests under the race detector
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: make test-race
+
+  build:
+    name: Cross-compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The binary must stay pure Go: the terminal interface adds no cgo, and
+      # fontconfig is queried through fc-list rather than linked.
+      - run: make release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rice-binaries
+          path: |
+            build/rice-*-linux-*
+            build/SHA256SUMS
+          if-no-files-found: error

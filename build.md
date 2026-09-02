@@ -2495,18 +2495,25 @@ looks worse than one that ignores Rice.
 
 # 50. Phase 7 — Public Release
 
-* [ ] README
+* [x] README
 * [ ] screenshots
-* [ ] architecture documentation
-* [ ] setup documentation
-* [ ] uninstall documentation
-* [ ] bundled themes
-* [ ] shell completions
-* [ ] CI
+* [x] architecture documentation
+* [x] setup documentation
+* [x] uninstall documentation
+* [x] bundled themes
+* [x] shell completions
+* [x] CI
 * [ ] release binaries
 * [ ] AUR package
 * [ ] checksums
 * [ ] tagged releases
+
+Completion is not only Cobra's generated script: it knows what Rice knows.
+Theme names come from the store, component names from the enabled set — never
+offering one that would error a moment later — and generation numbers come from
+disk, newest first, annotated with the theme each was built from. A completion
+function runs in its own process before the usual setup, so each resolves the
+application itself rather than relying on the shared instance.
 
 ## Beyond v1.0
 

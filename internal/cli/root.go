@@ -86,5 +86,7 @@ func NewRootCmd() *cobra.Command {
 		newStatusCmd(get),
 		newUninstallCmd(get),
 	)
+
+	registerCompletions(cmd, get)
 	return cmd
 }

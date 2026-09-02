@@ -165,6 +165,8 @@ rice generation show 42          # manifest: theme, parent, files, hashes
 
 rice rollback                    # back to the previous generation
 rice rollback 39                 # or to a specific one
+
+rice completion zsh              # shell completion (bash, zsh, fish, powershell)
 ```
 
 Global flags: `--root DIR` overrides the Rice root, otherwise `$RICE_HOME`, then
