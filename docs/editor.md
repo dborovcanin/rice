@@ -18,17 +18,20 @@ still prints help rather than opening an interface.
 ## Screens
 
 ```text
-Theme picker  ──enter──►  Global  ──g──►  Apps
-                            │               │
-   pick what to start from  │               ├── p  preview this app
-                            │               ├── v  view what it generates
-                            │               └── y  copy its config
+Theme picker  ──enter──►  Editor
                             │
-                            ├── s  save as a user theme
-                            └── a  save and apply
+                            ├─ GLOBAL          what the whole desktop shares
+                            │    Colors
+                            │    Fonts
+                            │    SwayFX
+                            │    Icons & Cursor
+                            │
+                            └─ APPS            one row each
+                                 sway  waybar  rofi  foot  dunst  …
 ```
 
-Pick a theme, adjust what the whole desktop shares, then go app by app.
+Pick a theme, adjust what the whole desktop shares, then go app by app. It is
+one list: the applications are always visible, not behind a key.
 
 `q` or `esc` goes back a screen; `q` on the picker leaves.
 
@@ -46,10 +49,14 @@ loudly.
 
 ---
 
+## The editor
+
+One navigation on the left, the selected thing's settings on the right. `tab`
+moves between the two; `↑` `↓` moves within them.
+
 ## Global
 
-What the whole desktop shares. Sections on the left, fields on the right;
-`tab` moves between them.
+What the whole desktop shares.
 
 | Section | Holds |
 | --- | --- |
@@ -168,11 +175,12 @@ a typo does not pass quietly.
 
 ## Programs
 
-Apps on the left, that app's settings on the right. `tab` moves between them.
+Every enabled application, below the global sections in the same list. Select
+one and its settings appear on the right, with the preview command above them.
 
-Apps sit flat under the global section for now; grouping them by category —
-terminal, launcher, notifications — comes later, when there are enough of them
-to need it. [Adding one](adding-a-program.md) is a checklist.
+Apps sit flat for now; grouping them by category — terminal, launcher,
+notifications — comes later, when there are enough of them to need it.
+[Adding one](adding-a-program.md) is a checklist.
 
 | Key | Does |
 | --- | --- |

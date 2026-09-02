@@ -664,7 +664,8 @@ func TestProgramsViewGeneratedOutput(t *testing.T) {
 	}
 
 	joined := strings.Join(m.overlay.lines, "\n")
-	if !strings.Contains(joined, "[colors]") {
+	// foot takes its palette from the section matching the theme's variant.
+	if !strings.Contains(joined, "[colors-dark]") {
 		t.Errorf("foot.ini does not look right:\n%s", joined)
 	}
 
