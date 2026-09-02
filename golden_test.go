@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -394,4 +396,66 @@ func TestGeneratedConfigsPassTheirOwnValidators(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A launcher is read at a glance from across the screen, so it often wants to
+// be larger than the rest of the desktop. Its font and icon size override the
+// theme's, and fall back to them when unset.
+func TestRofiFontAndIconSizeOverrideTheTheme(t *testing.T) {
+	builder := newBuilder()
+	themes := theme.NewStore("", rice.Themes, "themes")
+	th, err := themes.Load("gruvbox-dark")
+	if err != nil {
+		t.Fatalf("load theme: %v", err)
+	}
+
+	render := func(t *testing.T, cfg config.Config) string {
+		t.Helper()
+		cfg.Normalize()
+		files, err := builder.Render(cfg, th, 1)
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		for _, f := range files {
+			if f.Path == "rofi/config.rasi" {
+				return string(f.Content)
+			}
+		}
+		t.Fatal("rofi produced no configuration")
+		return ""
+	}
+
+	// Unset, the launcher follows the theme.
+	out := render(t, config.DefaultConfig())
+	if want := fmt.Sprintf("%q", th.Fonts.UIFamily+" "+strconv.Itoa(th.Fonts.UISize)); !strings.Contains(out, want) {
+		t.Errorf("font should fall back to the theme's %s:\n%s", want, firstLines(out, 20))
+	}
+	if want := fmt.Sprintf("%dpx", th.Icons.Size); !strings.Contains(out, want) {
+		t.Errorf("icon size should fall back to the theme's %s", want)
+	}
+
+	// Set, they win.
+	cfg := config.DefaultConfig()
+	cfg.Rofi.FontFamily = "Iosevka"
+	cfg.Rofi.FontSize = 22
+	cfg.Rofi.IconSize = 48
+
+	out = render(t, cfg)
+	if !strings.Contains(out, `"Iosevka 22"`) {
+		t.Errorf("the launcher font override was ignored:\n%s", firstLines(out, 20))
+	}
+	if !strings.Contains(out, "48px") {
+		t.Error("the launcher icon size override was ignored")
+	}
+	if strings.Contains(out, fmt.Sprintf("%dpx", th.Icons.Size)) {
+		t.Error("the theme's icon size is still in the output")
+	}
+}
+
+func firstLines(s string, n int) string {
+	lines := strings.Split(s, "\n")
+	if len(lines) > n {
+		lines = lines[:n]
+	}
+	return strings.Join(lines, "\n")
 }

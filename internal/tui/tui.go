@@ -128,8 +128,8 @@ const (
 
 func newModel(opts Options) (*model, error) {
 	m := &model{
-		opts:           opts,
-		sess:           opts.Session,
+		opts:         opts,
+		sess:         opts.Session,
 		fieldCursors: map[string]int{},
 		running:      map[string]*session.Preview{},
 		// A terminal that never reports its size still gets a usable layout

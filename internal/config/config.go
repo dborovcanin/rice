@@ -219,14 +219,49 @@ type Waybar struct {
 
 // Rofi describes launcher geometry. Colors come from the theme.
 type Rofi struct {
-	Width       string   `toml:"width"`
-	Lines       int      `toml:"lines"`
-	Columns     int      `toml:"columns"`
-	IconTheme   string   `toml:"icon_theme"`
-	ShowIcons   bool     `toml:"show_icons"`
+	Width     string `toml:"width"`
+	Lines     int    `toml:"lines"`
+	Columns   int    `toml:"columns"`
+	IconTheme string `toml:"icon_theme"`
+	ShowIcons bool   `toml:"show_icons"`
+
+	// FontFamily and FontSize override the theme's interface font for the
+	// launcher alone. A launcher is read at a glance from across the screen,
+	// so it often wants to be larger than the rest of the desktop. Zero or
+	// empty means the theme decides.
+	FontFamily string `toml:"font_family"`
+	FontSize   int    `toml:"font_size"`
+	// IconSize overrides the theme's icon size for the launcher alone. Zero
+	// means the theme decides.
+	IconSize int `toml:"icon_size"`
+
 	Modes       []string `toml:"modes"`
 	DisplayDrun string   `toml:"display_drun"`
 	Extra       string   `toml:"extra"`
+}
+
+// Font is the launcher's font family, falling back to the interface font.
+func (r Rofi) Font(family string) string {
+	if r.FontFamily != "" {
+		return r.FontFamily
+	}
+	return family
+}
+
+// Size is the launcher's font size, falling back to the interface size.
+func (r Rofi) Size(size int) int {
+	if r.FontSize != 0 {
+		return r.FontSize
+	}
+	return size
+}
+
+// Icons is the launcher's icon size, falling back to the theme's.
+func (r Rofi) Icons(size int) int {
+	if r.IconSize != 0 {
+		return r.IconSize
+	}
+	return size
 }
 
 // Foot describes terminal behaviour. Palette comes from the theme.

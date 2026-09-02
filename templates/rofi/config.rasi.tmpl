@@ -11,7 +11,7 @@ configuration {
     display-drun: {{ quote . }};
 {{- end }}
     terminal: {{ quote .Commands.Terminal }};
-    font: {{ quote (font .Fonts.UIFamily .Fonts.UISize) }};
+    font: {{ quote (font (.Rofi.Font .Fonts.UIFamily) (.Rofi.Size .Fonts.UISize)) }};
     drun-display-format: "{name}";
     hover-select: true;
     me-select-entry: "";
@@ -124,7 +124,7 @@ element selected.urgent {
 }
 
 element-icon {
-    size:             {{ .Icons.Size }}px;
+    size:             {{ .Rofi.Icons .Icons.Size }}px;
     background-color: transparent;
     text-color:       inherit;
     cursor:           inherit;

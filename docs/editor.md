@@ -212,7 +212,7 @@ where they are already comfortable to edit by hand.
 | --- | --- |
 | `sway` | None — the compositor is in the global SwayFX section. Preview and copy still work |
 | `waybar` | Position, layer, height, spacing |
-| `rofi` | Width, lines, columns, icons and icon theme, drun label |
+| `rofi` | Width, lines, columns, icons and icon theme, **font family and size**, **icon size**, drun label |
 | `foot` | **The 16 ANSI colours**, selection, cursor and URL, then server mode, shell, TERM, scrollback, padding, cursor style and blink |
 
 The ANSI palette is under the terminal because that is what reads it. It is

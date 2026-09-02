@@ -291,9 +291,26 @@ Module colours come from the theme; only behaviour belongs here.
 | `columns` | int | `1` |
 | `show_icons` | bool | `true` |
 | `icon_theme` | string | unset — falls back to the theme's icon theme |
+| `font_family` | string | unset — falls back to the theme's interface font |
+| `font_size` | int | `0` — falls back to the theme's interface size |
+| `icon_size` | int | `0` — falls back to the theme's `icons.size` |
 | `modes` | list | `["drun", "run", "window"]` |
 | `display_drun` | string | `"Run"` |
 | `extra` | string | Appended verbatim to `config.rasi`. |
+
+A launcher is read at a glance from across the screen, so it often wants to be
+larger than the rest of the desktop. These three override the theme for the
+launcher alone and leave everything else at the theme's size:
+
+```toml
+[rofi]
+font_family = "JetBrainsMono Nerd Font"
+font_size = 16
+icon_size = 40
+```
+
+Unset — empty or zero — means the theme decides, so a theme switch still moves
+the launcher with everything else.
 
 ---
 

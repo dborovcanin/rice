@@ -120,6 +120,12 @@ func rofiFields() []Field {
 			func(d *Draft) *bool { return &d.Config.Rofi.ShowIcons }),
 		pText("rofi.icon_theme", "Icon theme", "overrides the theme's icon set for the launcher only",
 			func(d *Draft) *string { return &d.Config.Rofi.IconTheme }),
+		pInt("rofi.font_size", "Font size", "0 uses the theme's interface size", 0, 96, 1,
+			func(d *Draft) *int { return &d.Config.Rofi.FontSize }),
+		pText("rofi.font_family", "Font family", "empty uses the theme's interface font",
+			func(d *Draft) *string { return &d.Config.Rofi.FontFamily }),
+		pInt("rofi.icon_size", "Icon size", "0 uses the theme's icon size", 0, 256, 2,
+			func(d *Draft) *int { return &d.Config.Rofi.IconSize }),
 		pText("rofi.display_drun", "Drun label", "the prompt shown in application mode",
 			func(d *Draft) *string { return &d.Config.Rofi.DisplayDrun }),
 	}
