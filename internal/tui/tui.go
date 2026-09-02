@@ -55,20 +55,22 @@ func Run(opts Options) error {
 	return nil
 }
 
-// screen is which view is on top.
+// screen is which view is on top. There are only two: choosing what to start
+// from, and editing it. Applications are rows in the editor's navigation
+// rather than a screen of their own, because "global, then app by app" is one
+// flow and splitting it hid half of it behind a keystroke.
 type screen int
 
 const (
 	screenPicker screen = iota
 	screenEditor
-	screenPrograms
 )
 
 // pane is which half of the editor has focus.
 type pane int
 
 const (
-	paneGroups pane = iota
+	paneNav pane = iota
 	paneFields
 )
 
@@ -85,17 +87,15 @@ type model struct {
 	themes       []theme.Entry
 	pickerCursor int
 
-	// editor state. fieldCursor is remembered per group, because moving
-	// between groups and back should return to where the user was.
-	groupCursor  int
-	fieldCursors map[session.Group]int
+	// editor state. items is the whole navigation — the global sections and
+	// then the applications — and fieldCursors remembers where the cursor was
+	// inside each of them, because moving away and back should return to it.
+	items        []navItem
+	navCursor    int
+	fieldCursors map[string]int
 
-	// programs state. programCursors remembers the setting cursor per
-	// program, the way the editor remembers it per group.
-	programs       []string
-	programCursor  int
-	programPane    pane
-	programCursors map[string]int
+	// programs are the enabled applications, in deployment order.
+	programs []string
 
 	// overlay state.
 	overlay overlay
@@ -130,9 +130,8 @@ func newModel(opts Options) (*model, error) {
 	m := &model{
 		opts:           opts,
 		sess:           opts.Session,
-		fieldCursors:   map[session.Group]int{},
-		programCursors: map[string]int{},
-		running:        map[string]*session.Preview{},
+		fieldCursors: map[string]int{},
+		running:      map[string]*session.Preview{},
 		// A terminal that never reports its size still gets a usable layout
 		// rather than an empty screen.
 		width:  80,
@@ -151,6 +150,8 @@ func newModel(opts Options) (*model, error) {
 	}
 
 	m.programs = m.sess.Components()
+	m.items = buildNav(m.programs)
+	m.navCursor = firstSelectable(m.items)
 	m.restyle()
 
 	if !truecolor() {
@@ -264,8 +265,6 @@ func (m *model) updateScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updatePicker(msg)
 	case screenEditor:
 		return m.updateEditor(msg)
-	case screenPrograms:
-		return m.updatePrograms(msg)
 	}
 	return m, nil
 }
@@ -357,8 +356,6 @@ func (m *model) View() string {
 		body = m.viewPicker()
 	case screenEditor:
 		body = m.viewEditor()
-	case screenPrograms:
-		body = m.viewPrograms()
 	}
 
 	if m.overlay.kind != overlayNone {
@@ -422,11 +419,14 @@ func (m *model) helpLine() string {
 	case screenPicker:
 		return "↑↓ move · enter choose · q quit"
 	case screenEditor:
-		return "tab pane · ↑↓ move · enter edit · ←→ nudge · r reset · c clear · R reset all · " +
-			"d diff · g programs · t themes · y copy theme · s save · a apply · q back"
-	case screenPrograms:
-		return "tab pane · ↑↓ move · enter edit · ←→ change · r reset · " +
-			"p preview · v view · y copy · x stop · s save · esc back"
+		// The keys that act on an application are only worth naming when one
+		// is selected, which keeps this line short enough to survive.
+		if _, isApp := m.app(); isApp {
+			return "tab pane · ↑↓ move · enter edit · ←→ change · r reset · " +
+				"p preview · v view · y copy · d diff · s save · a apply · t themes"
+		}
+		return "tab pane · ↑↓ move · enter edit · ←→ nudge · r reset · c clear · " +
+			"R reset all · d diff · y copy theme · s save · a apply · t themes"
 	}
 	return ""
 }

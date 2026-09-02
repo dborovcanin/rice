@@ -4,6 +4,7 @@
 
 font={{ .Fonts.MonoFamily }}:size={{ .Fonts.MonoSize }}
 term={{ .Foot.Term }}
+initial-color-theme={{ if .Dark }}dark{{ else }}light{{ end }}
 pad={{ .Foot.PadX }}x{{ .Foot.PadY }}
 {{- with .Foot.Shell }}
 shell={{ . }}
@@ -12,7 +13,6 @@ shell={{ . }}
 [cursor]
 style={{ .Foot.CursorStyle }}
 blink={{ if .Foot.CursorBlink }}yes{{ else }}no{{ end }}
-color={{ bare .Terminal.Background }} {{ bare .Terminal.Cursor }}
 
 [scrollback]
 lines={{ .Foot.ScrollbackLines }}
@@ -20,7 +20,7 @@ lines={{ .Foot.ScrollbackLines }}
 [key-bindings]
 show-urls-launch=Control+Shift+o
 
-[colors]
+[colors-{{ if .Dark }}dark{{ else }}light{{ end }}]
 alpha={{ float .UI.Opacity }}
 
 foreground={{ bare .Terminal.Foreground }}
@@ -47,6 +47,7 @@ bright7={{ bare (index .Terminal.Bright 7) }}
 selection-foreground={{ bare .Terminal.SelectionForeground }}
 selection-background={{ bare .Terminal.SelectionBackground }}
 urls={{ bare .Terminal.URL }}
+cursor={{ bare .Terminal.Background }} {{ bare .Terminal.Cursor }}
 {{- with .Foot.Extra }}
 
 {{ trim . }}

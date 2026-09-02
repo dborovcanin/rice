@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -121,11 +122,35 @@ func typeText(t *testing.T, m *model, s string) {
 	}
 }
 
+// selectGroup moves the navigation to a global section.
+func selectGroup(t *testing.T, m *model, g session.Group) {
+	t.Helper()
+	for i, item := range m.items {
+		if item.kind == navGroup && item.group == g {
+			m.navCursor = i
+			return
+		}
+	}
+	t.Fatalf("no navigation entry for %s", g)
+}
+
+// selectApp moves the navigation to an application.
+func selectApp(t *testing.T, m *model, name string) {
+	t.Helper()
+	for i, item := range m.items {
+		if item.kind == navApp && item.app == name {
+			m.navCursor = i
+			return
+		}
+	}
+	t.Fatalf("no navigation entry for %s", name)
+}
+
 func TestViewsRenderAtAnySize(t *testing.T) {
 	m, _, _ := newTestModel(t)
 
 	sizes := []struct{ w, h int }{{120, 40}, {80, 24}, {40, 10}, {20, 6}}
-	screens := []screen{screenPicker, screenEditor, screenPrograms}
+	screens := []screen{screenPicker, screenEditor}
 
 	for _, size := range sizes {
 		m.Update(tea.WindowSizeMsg{Width: size.w, Height: size.h})
@@ -333,18 +358,10 @@ func TestEditorRejectsABadThemeName(t *testing.T) {
 
 func TestProgramsPreviewAndCopy(t *testing.T) {
 	m, runner, _ := newTestModel(t)
-	press(t, m, "enter", "g")
-
-	if m.screen != screenPrograms {
-		t.Fatal("g should open the programs screen")
-	}
+	press(t, m, "enter")
 
 	// Land on foot, which previews without conditions.
-	for i, name := range m.programs {
-		if name == "foot" {
-			m.programCursor = i
-		}
-	}
+	selectApp(t, m, "foot")
 
 	cmd := press(t, m, "p")
 	if m.running["foot"] == nil {
@@ -370,13 +387,9 @@ func TestProgramsPreviewAndCopy(t *testing.T) {
 
 func TestProgramsConfirmBeforeLockingTheScreen(t *testing.T) {
 	m, _, _ := newTestModel(t)
-	press(t, m, "enter", "g")
+	press(t, m, "enter")
 
-	for i, name := range m.programs {
-		if name == "swaylock" {
-			m.programCursor = i
-		}
-	}
+	selectApp(t, m, "swaylock")
 
 	press(t, m, "p")
 	if m.overlay.kind != overlayConfirm {
@@ -394,13 +407,9 @@ func TestProgramsConfirmBeforeLockingTheScreen(t *testing.T) {
 
 func TestProgramsReportWhyAPreviewIsUnavailable(t *testing.T) {
 	m, _, _ := newTestModel(t)
-	press(t, m, "enter", "g")
+	press(t, m, "enter")
 
-	for i, name := range m.programs {
-		if name == "dunst" {
-			m.programCursor = i
-		}
-	}
+	selectApp(t, m, "dunst")
 
 	press(t, m, "p")
 	if m.running["dunst"] != nil {
@@ -418,11 +427,7 @@ func TestFontOverlayFallsBackToTyping(t *testing.T) {
 	press(t, m, "enter")
 
 	// Move to the Fonts group and its first field.
-	for i, g := range session.Groups() {
-		if g == session.GroupFonts {
-			m.groupCursor = i
-		}
-	}
+	selectGroup(t, m, session.GroupFonts)
 	press(t, m, "tab", "enter")
 
 	if m.overlay.kind != overlayFonts {
@@ -441,13 +446,9 @@ func TestFontOverlayFallsBackToTyping(t *testing.T) {
 
 func TestQuitStopsRunningPreviews(t *testing.T) {
 	m, _, _ := newTestModel(t)
-	press(t, m, "enter", "g")
+	press(t, m, "enter")
 
-	for i, name := range m.programs {
-		if name == "foot" {
-			m.programCursor = i
-		}
-	}
+	selectApp(t, m, "foot")
 	press(t, m, "p")
 
 	p := m.running["foot"]
@@ -463,22 +464,18 @@ func TestQuitStopsRunningPreviews(t *testing.T) {
 
 func TestProgramsEditASetting(t *testing.T) {
 	m, _, _ := newTestModel(t)
-	press(t, m, "enter", "g")
+	press(t, m, "enter")
 
-	for i, name := range m.programs {
-		if name == "waybar" {
-			m.programCursor = i
-		}
-	}
+	selectApp(t, m, "waybar")
 
 	press(t, m, "tab")
-	if m.programPane != paneFields {
+	if m.pane != paneFields {
 		t.Fatal("tab should move focus to the program's settings")
 	}
 
 	// waybar's first setting is its position, a fixed set of choices, so
 	// enter cycles rather than opening a text prompt.
-	f, ok := m.programField()
+	f, ok := m.field()
 	if !ok || f.Key != "waybar.position" {
 		t.Fatalf("field = %q, want waybar.position", f.Key)
 	}
@@ -499,8 +496,8 @@ func TestProgramsEditASetting(t *testing.T) {
 	}
 
 	// A numeric setting does open a prompt.
-	m.setProgramFieldCursor(2) // waybar.height
-	f, _ = m.programField()
+	m.setFieldCursor(2) // waybar.height
+	f, _ = m.field()
 	if f.Key != "waybar.height" {
 		t.Fatalf("field = %q, want waybar.height", f.Key)
 	}
@@ -515,35 +512,35 @@ func TestProgramsEditASetting(t *testing.T) {
 	}
 }
 
-func TestProgramsKeepTheirOwnCursor(t *testing.T) {
+// The cursor is remembered per navigation entry, across global sections and
+// applications alike, because moving away and back should return to where you
+// were rather than to the top.
+func TestEachSectionKeepsItsOwnCursor(t *testing.T) {
 	m, _, _ := newTestModel(t)
-	press(t, m, "enter", "g")
+	press(t, m, "enter")
 
-	for i, name := range m.programs {
-		if name == "foot" {
-			m.programCursor = i
-		}
-	}
+	selectApp(t, m, "foot")
 	press(t, m, "tab", "down", "down")
-	footCursor := m.programFieldCursor()
-	if footCursor != 2 {
-		t.Fatalf("foot cursor = %d, want 2", footCursor)
+	if got := m.fieldCursor(); got != 2 {
+		t.Fatalf("foot cursor = %d, want 2", got)
 	}
 
-	press(t, m, "tab", "up")
-	press(t, m, "tab")
-	if got := m.programFieldCursor(); got == footCursor {
-		t.Skip("the neighbouring program happens to share a cursor position")
+	selectGroup(t, m, session.GroupFonts)
+	if got := m.fieldCursor(); got != 0 {
+		t.Fatalf("a section not yet visited starts at %d, want 0", got)
+	}
+	press(t, m, "down")
+	if got := m.fieldCursor(); got != 1 {
+		t.Fatalf("fonts cursor = %d, want 1", got)
 	}
 
-	// Coming back restores where the cursor was.
-	for i, name := range m.programs {
-		if name == "foot" {
-			m.programCursor = i
-		}
+	selectApp(t, m, "foot")
+	if got := m.fieldCursor(); got != 2 {
+		t.Errorf("foot cursor = %d, want it remembered as 2", got)
 	}
-	if got := m.programFieldCursor(); got != footCursor {
-		t.Errorf("foot cursor = %d, want it remembered as %d", got, footCursor)
+	selectGroup(t, m, session.GroupFonts)
+	if got := m.fieldCursor(); got != 1 {
+		t.Errorf("fonts cursor = %d, want it remembered as 1", got)
 	}
 }
 
@@ -556,14 +553,10 @@ func TestSaveWritesProgramSettings(t *testing.T) {
 		return nil
 	})
 
-	press(t, m, "enter", "g")
-	for i, name := range m.programs {
-		if name == "rofi" {
-			m.programCursor = i
-		}
-	}
+	press(t, m, "enter")
+	selectApp(t, m, "rofi")
 	press(t, m, "tab")
-	m.setProgramFieldCursor(1) // rofi.lines
+	m.setFieldCursor(1) // rofi.lines
 	press(t, m, "enter")
 	m.overlay.input.SetValue("14")
 	press(t, m, "enter")
@@ -605,11 +598,7 @@ func TestIconThemeOpensTheInstalledThemePicker(t *testing.T) {
 	m, _, _ := newTestModel(t)
 	press(t, m, "enter")
 
-	for i, g := range session.Groups() {
-		if g == session.GroupIcons {
-			m.groupCursor = i
-		}
-	}
+	selectGroup(t, m, session.GroupIcons)
 	press(t, m, "tab", "enter")
 
 	if m.overlay.kind != overlayAssets {
@@ -646,11 +635,7 @@ func TestPickerFallsBackToTypingWhenNothingIsInstalled(t *testing.T) {
 	m, _, _ := newTestModel(t)
 	press(t, m, "enter")
 
-	for i, g := range session.Groups() {
-		if g == session.GroupIcons {
-			m.groupCursor = i
-		}
-	}
+	selectGroup(t, m, session.GroupIcons)
 	press(t, m, "tab", "enter")
 
 	if m.overlay.kind != overlayAssets {
@@ -666,13 +651,9 @@ func TestPickerFallsBackToTypingWhenNothingIsInstalled(t *testing.T) {
 
 func TestProgramsViewGeneratedOutput(t *testing.T) {
 	m, _, _ := newTestModel(t)
-	press(t, m, "enter", "g")
+	press(t, m, "enter")
 
-	for i, name := range m.programs {
-		if name == "foot" {
-			m.programCursor = i
-		}
-	}
+	selectApp(t, m, "foot")
 	press(t, m, "v")
 
 	if m.overlay.kind != overlayView {
@@ -737,11 +718,7 @@ func TestNotInstalledThemesAreMarked(t *testing.T) {
 	}
 
 	press(t, m, "enter")
-	for i, g := range session.Groups() {
-		if g == session.GroupIcons {
-			m.groupCursor = i
-		}
-	}
+	selectGroup(t, m, session.GroupIcons)
 	press(t, m, "tab")
 
 	if !strings.Contains(m.View(), "not installed") {
@@ -758,5 +735,97 @@ func TestEditorShowsWhatApplyingWouldChange(t *testing.T) {
 	press(t, m, "d")
 	if m.overlay.kind != overlayNone || m.level != levelBad {
 		t.Errorf("with nothing deployed: overlay %v, status %q", m.overlay.kind, m.status)
+	}
+}
+
+// The flow is one list: what the whole desktop shares, then each application.
+// Applications used to be behind a keystroke, which meant they could not be
+// found by looking.
+func TestNavigationShowsGlobalThenApps(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter")
+
+	var headings, groups, apps []string
+	for _, item := range m.items {
+		switch item.kind {
+		case navHeading:
+			headings = append(headings, item.label)
+		case navGroup:
+			groups = append(groups, item.label)
+		case navApp:
+			apps = append(apps, item.app)
+		}
+	}
+
+	if !slices.Equal(headings, []string{"GLOBAL", "APPS"}) {
+		t.Errorf("headings = %v, want GLOBAL then APPS", headings)
+	}
+	if !slices.Equal(groups, []string{"Colors", "Fonts", "SwayFX", "Icons & Cursor"}) {
+		t.Errorf("global sections = %v", groups)
+	}
+	if !slices.Equal(apps, m.programs) {
+		t.Errorf("apps = %v, want the enabled components %v", apps, m.programs)
+	}
+
+	// Every enabled application is visible on the screen, by name, with no
+	// key pressed to get there.
+	view := m.View()
+	for _, app := range m.programs {
+		if !strings.Contains(view, app) {
+			t.Errorf("%q is not on the screen:\n%s", app, view)
+		}
+	}
+}
+
+// Headings are labels, not destinations.
+func TestNavigationSkipsHeadings(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter")
+
+	if m.nav().kind == navHeading {
+		t.Fatal("the cursor started on a heading")
+	}
+
+	// Walk the whole list in both directions; a heading must never be landed
+	// on, and the ends must hold rather than wrap.
+	for range len(m.items) + 5 {
+		press(t, m, "down")
+		if m.nav().kind == navHeading {
+			t.Fatalf("moved onto heading %q", m.nav().label)
+		}
+	}
+	if last := m.items[len(m.items)-1]; m.nav().app != last.app {
+		t.Errorf("moving down stopped at %q, want the last entry %q", m.nav().label, last.label)
+	}
+
+	for range len(m.items) + 5 {
+		press(t, m, "up")
+		if m.nav().kind == navHeading {
+			t.Fatalf("moved onto heading %q", m.nav().label)
+		}
+	}
+	if m.nav().label != "Colors" {
+		t.Errorf("moving up stopped at %q, want Colors", m.nav().label)
+	}
+}
+
+// Selecting an application shows how to preview it, without going anywhere.
+func TestApplicationRowOffersItsPreview(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter")
+	selectApp(t, m, "foot")
+
+	view := m.View()
+	if !strings.Contains(view, "foot -c") {
+		t.Errorf("the preview command is not shown:\n%s", view)
+	}
+	if !strings.Contains(m.helpLine(), "p preview") {
+		t.Errorf("help = %q, want it to offer preview", m.helpLine())
+	}
+
+	// On a global section those keys mean nothing, so they are not offered.
+	selectGroup(t, m, session.GroupColors)
+	if strings.Contains(m.helpLine(), "p preview") {
+		t.Errorf("help on a global section offers preview: %q", m.helpLine())
 	}
 }

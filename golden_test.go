@@ -1,11 +1,15 @@
 package rice_test
 
 import (
+	"bytes"
+	"context"
 	"flag"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	rice "github.com/dborovcanin/rice"
 	"github.com/dborovcanin/rice/internal/adapter"
@@ -319,5 +323,75 @@ primary = "#5599ff"
 				t.Errorf("%s:%d has an empty value: %q", rel, i+1, trimmed)
 			}
 		}
+	}
+}
+
+// validators are the applications that can check their own configuration.
+// Rice's own validation catches the shape of a file; only the application
+// itself knows whether a key still exists.
+var validators = []struct {
+	binary string
+	file   string
+	args   func(path string) []string
+}{
+	{"foot", "foot/foot.ini", func(p string) []string { return []string{"--check-config", "-c", p} }},
+	{"sway", "sway/config", func(p string) []string { return []string{"-C", "-c", p} }},
+	{"rofi", "rofi/config.rasi", func(p string) []string { return []string{"-config", p, "-dump-config"} }},
+}
+
+// TestGeneratedConfigsPassTheirOwnValidators hands each generated file to the
+// application that reads it.
+//
+// This exists because two deprecations shipped unnoticed: foot moved the ANSI
+// palette from [colors] to [colors-dark] and dropped [cursor].color, and
+// nothing in Rice could have known. Golden files only prove the output has not
+// changed, not that it is still correct.
+func TestGeneratedConfigsPassTheirOwnValidators(t *testing.T) {
+	builder := newBuilder()
+
+	cfg := config.DefaultConfig()
+	// The wallpaper is a fixture path that does not exist, and sway rejects a
+	// background it cannot read. That is a missing file, not a bad config.
+	cfg.Sway.Wallpaper = ""
+	for i := range cfg.Sway.Outputs {
+		cfg.Sway.Outputs[i].Wallpaper = ""
+	}
+	cfg.Normalize()
+
+	themes := theme.NewStore("", rice.Themes, "themes")
+
+	for _, name := range goldenThemes {
+		t.Run(name, func(t *testing.T) {
+			th, err := themes.Load(name)
+			if err != nil {
+				t.Fatalf("load theme: %v", err)
+			}
+
+			dir := t.TempDir()
+			if _, err := builder.Build(dir, cfg, th, 1, generation.BuildOptions{}); err != nil {
+				t.Fatalf("build: %v", err)
+			}
+
+			for _, v := range validators {
+				t.Run(v.binary, func(t *testing.T) {
+					path, err := exec.LookPath(v.binary)
+					if err != nil {
+						t.Skipf("%s is not installed", v.binary)
+					}
+
+					target := filepath.Join(dir, filepath.FromSlash(v.file))
+					ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+					defer cancel()
+
+					out, err := exec.CommandContext(ctx, path, v.args(target)...).CombinedOutput()
+
+					// Sway reports a bad config through its output rather than
+					// its exit status, so both are checked.
+					if err != nil || bytes.Contains(out, []byte("[ERROR]")) {
+						t.Errorf("%s rejected the generated configuration: %v\n%s", v.binary, err, out)
+					}
+				})
+			}
+		})
 	}
 }

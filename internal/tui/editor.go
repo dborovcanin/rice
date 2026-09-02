@@ -14,77 +14,47 @@ import (
 // into the field table.
 func lookup(key string) (session.Field, bool) { return session.LookupField(key) }
 
-// group returns the group under the group cursor.
-func (m *model) group() session.Group {
-	groups := session.Groups()
-	return groups[clampIndex(m.groupCursor, len(groups))]
-}
-
-// fields returns the fields of the current group.
-func (m *model) fields() []session.Field { return session.FieldsIn(m.group()) }
-
-// field returns the field under the field cursor, and false when the group is
-// somehow empty.
-func (m *model) field() (session.Field, bool) {
-	fields := m.fields()
-	if len(fields) == 0 {
-		return session.Field{}, false
-	}
-	return fields[clampIndex(m.fieldCursor(), len(fields))], true
-}
-
-func (m *model) fieldCursor() int { return m.fieldCursors[m.group()] }
-
-func (m *model) setFieldCursor(i int) {
-	m.fieldCursors[m.group()] = clampIndex(i, len(m.fields()))
-}
-
 func (m *model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "tab":
-		if m.pane == paneGroups {
+	case "tab", "shift+tab":
+		if m.pane == paneNav && len(m.fields()) > 0 {
 			m.pane = paneFields
 		} else {
-			m.pane = paneGroups
+			m.pane = paneNav
 		}
 		return m, nil
-	case "shift+tab":
-		if m.pane == paneFields {
-			m.pane = paneGroups
-		} else {
-			m.pane = paneFields
-		}
-		return m, nil
-
-	case "left", "h":
-		if m.pane == paneGroups {
-			return m, nil
-		}
-		return m, m.nudge(-1)
-	case "right", "l":
-		if m.pane == paneGroups {
-			return m, nil
-		}
-		return m, m.nudge(1)
 
 	case "up", "k":
-		if m.pane == paneGroups {
-			m.groupCursor = clampIndex(m.groupCursor-1, len(session.Groups()))
+		if m.pane == paneNav {
+			m.moveNav(-1)
 		} else {
 			m.setFieldCursor(m.fieldCursor() - 1)
 		}
 		return m, nil
 	case "down", "j":
-		if m.pane == paneGroups {
-			m.groupCursor = clampIndex(m.groupCursor+1, len(session.Groups()))
+		if m.pane == paneNav {
+			m.moveNav(1)
 		} else {
 			m.setFieldCursor(m.fieldCursor() + 1)
 		}
 		return m, nil
 
+	case "left", "h":
+		if m.pane == paneFields {
+			return m, m.nudge(-1)
+		}
+		return m, nil
+	case "right", "l":
+		if m.pane == paneFields {
+			return m, m.nudge(1)
+		}
+		return m, nil
+
 	case "enter":
-		if m.pane == paneGroups {
-			m.pane = paneFields
+		if m.pane == paneNav {
+			if len(m.fields()) > 0 {
+				m.pane = paneFields
+			}
 			return m, nil
 		}
 		return m.editField()
@@ -96,7 +66,8 @@ func (m *model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return
 			}
 			m.restyle()
-			m.setStatus(levelInfo, "%s reset to %s", f.Key, m.sess.Base.Theme.Name)
+			value, _ := m.sess.Get(f.Key)
+			m.setStatus(levelInfo, "%s reset to %s", f.Key, value)
 		})
 
 	case "c":
@@ -111,7 +82,7 @@ func (m *model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		})
 
 	case "R":
-		m.overlay = confirmOverlay("Discard every change to this theme?", func(mm *model) tea.Cmd {
+		m.overlay = confirmOverlay("Discard every change?", func(mm *model) tea.Cmd {
 			mm.sess.ResetAll()
 			mm.restyle()
 			mm.setStatus(levelInfo, "all changes discarded")
@@ -119,18 +90,23 @@ func (m *model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		})
 		return m, nil
 
-	case "g":
-		m.screen = screenPrograms
-		return m, nil
+	// Per-application actions. They mean something only when an application is
+	// selected, and say so when one is not.
+	case "p":
+		return m, m.previewSelected()
+	case "v":
+		return m, m.viewSelected()
+	case "x":
+		return m, m.stopSelected()
+
+	case "y":
+		return m, m.copySelected()
+	case "d":
+		return m, m.showDiff()
+
 	case "t", "q", "esc":
 		m.screen = screenPicker
 		return m, nil
-
-	case "y":
-		return m, m.copyTheme()
-
-	case "d":
-		return m, m.showDiff()
 
 	case "s":
 		m.overlay = saveOverlay(m.suggestedName(), false)
@@ -147,11 +123,11 @@ func (m *model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *model) withField(fn func(session.Field)) tea.Cmd {
 	f, ok := m.field()
 	if !ok {
-		m.setStatus(levelBad, "no field selected")
+		m.setStatus(levelBad, "nothing to change here")
 		return nil
 	}
 	if m.pane != paneFields {
-		m.setStatus(levelInfo, "select a field first")
+		m.setStatus(levelInfo, "select a setting first")
 		return nil
 	}
 	fn(f)
@@ -170,8 +146,8 @@ func (m *model) nudge(steps int) tea.Cmd {
 	})
 }
 
-// editField opens the right editor for the focused field: a font list for a
-// font family, a text input for everything else.
+// editField opens the right editor for the focused field: a list for a font or
+// an installed theme, a cycle for a switch, a text input for the rest.
 func (m *model) editField() (tea.Model, tea.Cmd) {
 	f, ok := m.field()
 	if !ok {
@@ -180,6 +156,9 @@ func (m *model) editField() (tea.Model, tea.Cmd) {
 	current, _ := m.sess.Get(f.Key)
 
 	switch {
+	case f.Kind == session.KindBool, f.Kind == session.KindChoice:
+		// A switch and a fixed set of choices are faster to cycle than to type.
+		return m, m.nudge(1)
 	case f.Kind == session.KindFont:
 		m.overlay = fontOverlay(f, current, m.catalog, m.catalogDone, m.catalogErr)
 		return m, m.loadFonts()
@@ -192,8 +171,31 @@ func (m *model) editField() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// showDiff answers the question the editor cannot otherwise answer: not what
-// the draft says, but what applying it would actually change.
+// copySelected copies the selected application's configuration, or the whole
+// theme when a global section is selected.
+func (m *model) copySelected() tea.Cmd {
+	name, isApp := m.app()
+	if !isApp {
+		tool, err := m.sess.CopyTheme(context.Background())
+		if err != nil {
+			m.setStatus(levelBad, "copy: %v", err)
+			return nil
+		}
+		m.setStatus(levelGood, "theme copied to the clipboard with %s", tool)
+		return nil
+	}
+
+	tool, err := m.sess.CopyComponent(context.Background(), name)
+	if err != nil {
+		m.setStatus(levelBad, "copy %s: %v", name, err)
+		return nil
+	}
+	m.setStatus(levelGood, "%s configuration copied to the clipboard with %s", name, tool)
+	return nil
+}
+
+// showDiff answers the question the field list cannot: not what the draft
+// says, but what applying it would actually change.
 func (m *model) showDiff() tea.Cmd {
 	text, err := m.sess.Diff(3)
 	if err != nil {
@@ -207,16 +209,6 @@ func (m *model) showDiff() tea.Cmd {
 
 	m.overlay = viewOverlayOf("what applying would change", text)
 	m.setStatus(levelInfo, "showing the difference against the deployed generation")
-	return nil
-}
-
-func (m *model) copyTheme() tea.Cmd {
-	tool, err := m.sess.CopyTheme(context.Background())
-	if err != nil {
-		m.setStatus(levelBad, "copy: %v", err)
-		return nil
-	}
-	m.setStatus(levelGood, "theme copied to the clipboard with %s", tool)
 	return nil
 }
 
@@ -237,59 +229,53 @@ func (m *model) suggestedName() string {
 }
 
 func (m *model) viewEditor() string {
-	groups := session.Groups()
+	navWidth := m.navWidth()
 
-	groupWidth := 0
-	for _, g := range groups {
-		if n := len(g.String()); n > groupWidth {
-			groupWidth = n
-		}
-	}
-
-	var left strings.Builder
-	for i, g := range groups {
-		row := pad(g.String(), groupWidth)
-		switch {
-		case i == m.groupCursor && m.pane == paneGroups:
-			row = m.styles.rowActive.Render(row)
-		case i == m.groupCursor:
-			row = m.styles.rowCursor.Render(row)
-		default:
-			row = m.styles.row.Render(row)
-		}
-		left.WriteString(row + "\n")
-	}
-
-	groupPane := m.styles.paneOff
+	navPane := m.styles.paneOff
 	fieldPane := m.styles.paneOff
-	if m.pane == paneGroups {
-		groupPane = m.styles.paneOn
+	if m.pane == paneNav {
+		navPane = m.styles.paneOn
 	} else {
 		fieldPane = m.styles.paneOn
 	}
 
-	fieldsWidth := m.width - groupWidth - 8
-	if fieldsWidth < 20 {
-		fieldsWidth = 20
+	fieldsWidth := m.width - navWidth - 8
+	if fieldsWidth < 24 {
+		fieldsWidth = 24
 	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Top,
-		groupPane.Render(strings.TrimRight(left.String(), "\n")),
-		fieldPane.Render(m.viewFields(fieldsWidth)),
+		navPane.Render(m.viewNav(navWidth)),
+		fieldPane.Render(m.viewDetail(fieldsWidth)),
 	)
 }
 
-func (m *model) viewFields(width int) string {
+// viewDetail is the right-hand pane: the fields of whatever is selected, under
+// a heading saying what it is and, for an application, how to preview it.
+func (m *model) viewDetail(width int) string {
+	item := m.nav()
+
+	var b strings.Builder
+	b.WriteString(m.styles.title.Render(item.label) + "\n")
+
+	if name, isApp := m.app(); isApp {
+		b.WriteString(truncate(m.previewLine(name), width) + "\n")
+		if note := session.Note(name); note != "" {
+			b.WriteString(m.styles.subtle.Render(truncate(note, width)) + "\n")
+		}
+	}
+	b.WriteString("\n")
+
 	fields := m.fields()
 	if len(fields) == 0 {
-		return "no fields"
+		b.WriteString(m.styles.subtle.Render("Nothing to set here."))
+		return b.String()
 	}
 
 	layout := m.measure(fields)
 	cursor := m.fieldCursor()
-	visible, offset := m.window(len(fields), cursor)
+	visible, offset := m.windowWith(len(fields), cursor, 10)
 
-	var b strings.Builder
 	for i := offset; i < offset+visible; i++ {
 		b.WriteString(m.fieldRow(fields[i], layout, width,
 			i == cursor, i == cursor && m.pane == paneFields) + "\n")
@@ -319,8 +305,9 @@ func (m *model) measure(fields []session.Field) columns {
 	return c
 }
 
-// fieldRow renders one editable field. Both panes use it, so a colour has a
-// swatch and a missing theme is marked wherever it is edited.
+// fieldRow renders one editable field, wherever it is edited: a colour has a
+// swatch and a missing theme is marked in a global section and under an
+// application alike.
 func (m *model) fieldRow(f session.Field, layout columns, width int, cursor, focused bool) string {
 	value, _ := m.sess.Get(f.Key)
 	if value == "" {

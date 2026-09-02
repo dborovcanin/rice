@@ -59,7 +59,7 @@ func (m *model) chooseTheme(name string) tea.Cmd {
 	}
 	m.restyle()
 	m.screen = screenEditor
-	m.pane = paneGroups
+	m.pane = paneNav
 	m.setStatus(levelGood, "editing %s", name)
 	return nil
 }
