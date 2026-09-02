@@ -302,10 +302,13 @@ func (m *model) viewProgramDetail(width int) string {
 		return b.String()
 	}
 
-	labelWidth := 0
+	labelWidth, valueWidth := 0, 10
 	for _, f := range fields {
 		if n := len(f.Label); n > labelWidth {
 			labelWidth = n
+		}
+		if n := len(f.Display(m.sess.Resolved())); n > valueWidth {
+			valueWidth = n
 		}
 	}
 
@@ -318,11 +321,11 @@ func (m *model) viewProgramDetail(width int) string {
 			value = "—"
 		}
 
-		row := pad(f.Label, labelWidth+2) + pad(value, 18)
+		row := pad(f.Label, labelWidth+2) + pad(value, valueWidth+2)
 		if m.sess.Overridden(f.Key) {
 			row += m.styles.changed.Render("changed ")
 		}
-		row = pad(row, labelWidth+2+18+9) + m.styles.subtle.Render(f.Help)
+		row = pad(row, labelWidth+valueWidth+13) + m.styles.subtle.Render(f.Help)
 
 		prefix := "  "
 		if i == cursor {

@@ -285,10 +285,15 @@ func (m *model) viewFields(width int) string {
 		return "no fields"
 	}
 
-	labelWidth := 0
+	// Both columns are sized to their longest entry, so a long value never
+	// runs into the marker beside it.
+	labelWidth, valueWidth := 0, 8
 	for _, f := range fields {
 		if n := len(f.Label); n > labelWidth {
 			labelWidth = n
+		}
+		if n := len(f.Display(m.sess.Resolved())); n > valueWidth {
+			valueWidth = n
 		}
 	}
 
@@ -304,7 +309,7 @@ func (m *model) viewFields(width int) string {
 		if c, ok := m.sess.Color(f.Key); ok {
 			row += swatch(c) + " "
 		}
-		row += pad(value, 12)
+		row += pad(value, valueWidth+2)
 
 		switch {
 		case m.sess.Missing(f.Key):
