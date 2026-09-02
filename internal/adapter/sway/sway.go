@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/dborovcanin/rice/internal/adapter"
+	"github.com/dborovcanin/rice/internal/config"
 )
 
 type Adapter struct{}
@@ -18,16 +19,42 @@ func New() adapter.Adapter { return Adapter{} }
 
 func (Adapter) Name() string { return "sway" }
 
-func (Adapter) Files() []adapter.File {
-	return []adapter.File{
-		{Template: "sway/config.tmpl", Path: "sway/config"},
-	}
+func (Adapter) Files() []adapter.File { return filesFor(true) }
+
+// FilesFor drops the environment file when it is turned off.
+func (Adapter) FilesFor(cfg config.Config) []adapter.File {
+	return filesFor(cfg.Sway.WriteEnvironment)
 }
 
-func (Adapter) ConfigPaths() []adapter.ManagedPath {
-	return []adapter.ManagedPath{
+func filesFor(environment bool) []adapter.File {
+	files := []adapter.File{
+		{Template: "sway/config.tmpl", Path: "sway/config"},
+	}
+	if environment {
+		files = append(files, adapter.File{
+			Template: "sway/environment.conf.tmpl", Path: "sway/environment.conf",
+		})
+	}
+	return files
+}
+
+func (Adapter) ConfigPaths() []adapter.ManagedPath { return pathsFor(true) }
+
+func (Adapter) ConfigPathsFor(cfg config.Config) []adapter.ManagedPath {
+	return pathsFor(cfg.Sway.WriteEnvironment)
+}
+
+func pathsFor(environment bool) []adapter.ManagedPath {
+	paths := []adapter.ManagedPath{
 		{Source: "sway/config", Target: "sway/config"},
 	}
+	if environment {
+		paths = append(paths, adapter.ManagedPath{
+			Source: "sway/environment.conf",
+			Target: filepath.Join("environment.d", "50-rice.conf"),
+		})
+	}
+	return paths
 }
 
 // ReloadMode is hot: `swaymsg reload` re-reads the whole config in place.

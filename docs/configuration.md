@@ -33,9 +33,15 @@ its templates entirely.
 | `foot` | `true` |
 | `dunst` | `true` |
 | `swaylock` | `true` |
+| `gtk` | `true` |
+| `qt` | `true` |
 
 Disabling `waybar` makes the Sway template emit its own themed `bar {}` block
 instead, so you never end up with no bar at all.
+
+`gtk` and `qt` are toolkit integration rather than applications: they make GTK
+and Qt programs follow the theme instead of looking like they belong to another
+desktop. See [`[gtk]`](#gtk) and [`[qt]`](#qt).
 
 ---
 
@@ -181,6 +187,32 @@ workspace = "1"          # the key of a sway.workspaces entry
 Waybar, Dunst, the Foot server and swayidle are started from their own component
 settings, so they do not need entries here.
 
+### Session environment
+
+```toml
+[sway]
+write_environment = true
+
+[sway.environment]
+MOZ_ENABLE_WAYLAND = "1"
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `write_environment` | bool | `true` | Write `environment.d/50-rice.conf`. |
+| `environment` | table | empty | Extra variables to put in that file. |
+
+Sway's configuration language cannot export a variable, so the cursor theme and
+the Qt platform theme have to be set somewhere the session reads at startup.
+`environment.d` is that place: the systemd user manager reads it at login.
+
+Rice always writes `XCURSOR_THEME` and `XCURSOR_SIZE` there, and
+`QT_QPA_PLATFORMTHEME` when the `qt` component is enabled.
+
+**A change to this file needs a fresh session, not a Sway reload.**
+
+---
+
 ### `[sway.keyboard]`
 
 | Key | Type | Default |
@@ -312,6 +344,63 @@ Font, palette and background opacity come from the theme.
 | `show_failed_attempts` | bool | `true` |
 | `clock` | bool | `true` |
 | `extra` | string | Appended verbatim. |
+
+---
+
+## `[gtk]`
+
+```toml
+[gtk]
+settings = true
+css = false
+extra_css = ""
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `settings` | bool | `true` | Write `settings.ini` into both `gtk-3.0/` and `gtk-4.0/`: widget theme, icon theme, interface font, cursor, dark preference. |
+| `css` | bool | `false` | Write a `gtk.css` mapping the palette onto libadwaita's named colours, so GTK 4 applications pick up the accent and window background. |
+| `extra_css` | string | `""` | Appended verbatim to the generated `gtk.css`. |
+
+`css` is off by default. It is the one part of toolkit integration that changes
+how applications look rather than only which theme they load, and a GTK
+application fighting its own theme looks worse than one that ignores Rice. Turn
+it on when the palette matters more than the theme's own design.
+
+Which widget theme, icon theme and Kvantum theme are used comes from the
+theme's `[icons]`, `[cursor]` and `[gtk]` blocks, not from here: those are
+appearance. See [themes.md](themes.md).
+
+GTK has no global icon-size setting, so the theme's `icons.size` does not reach
+it.
+
+---
+
+## `[qt]`
+
+```toml
+[qt]
+qt5ct = true
+qt6ct = true
+kvantum = true
+platform_theme = "qt5ct"
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `qt5ct` | bool | `true` | Write `qt5ct/qt5ct.conf`. |
+| `qt6ct` | bool | `true` | Write `qt6ct/qt6ct.conf`. |
+| `kvantum` | bool | `true` | Write `Kvantum/kvantum.kvconfig` selecting the theme's Kvantum theme. No effect unless the Kvantum style is installed. |
+| `platform_theme` | string | `"qt5ct"` | What `QT_QPA_PLATFORMTHEME` is set to in the session environment. |
+
+The widget style comes from the theme's `gtk.qt_style_override`, falling back
+to `Fusion`. Set it to `kvantum` to use the Kvantum theme.
+
+`platform_theme` only does anything because Rice writes it into
+`environment.d/50-rice.conf` — see `sway.write_environment` below. Without that
+variable, a generated `qt5ct.conf` is inert.
+
+Qt has no global icon-size setting either.
 
 ---
 

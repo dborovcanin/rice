@@ -171,12 +171,12 @@ func (c Config) Validate() error {
 
 // Any reports whether at least one component is enabled.
 func (c Components) Any() bool {
-	return c.Sway || c.Waybar || c.Rofi || c.Foot || c.Dunst || c.Swaylock
+	return c.Sway || c.Waybar || c.Rofi || c.Foot || c.Dunst || c.Swaylock || c.GTK || c.Qt
 }
 
 // Names returns the enabled component names in deployment order.
 func (c Components) Names() []string {
-	all := []string{"sway", "waybar", "rofi", "foot", "dunst", "swaylock"}
+	all := []string{"sway", "waybar", "rofi", "foot", "dunst", "swaylock", "gtk", "qt"}
 	var out []string
 	for _, name := range all {
 		if c.Enabled(name) {

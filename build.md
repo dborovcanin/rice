@@ -2400,19 +2400,55 @@ Allow user scripts where customization is desirable.
 
 # 49. Phase 6 — GTK / Qt
 
-**Target: 1–3 engineering days**
+* [x] GTK3
+* [x] GTK4
+* [x] icon settings
+* [x] cursor settings
+* [x] fonts
+* [x] qt5ct
+* [x] qt6ct
+* [x] Kvantum
+* [x] session environment
+* [ ] doctor integration — waits on `rice doctor` itself
 
-* [ ] GTK3
-* [ ] GTK4 where appropriate
-* [ ] icon settings
-* [ ] icon size, shared with the theme model
-* [ ] cursor settings
-* [ ] fonts
-* [ ] qt5ct
-* [ ] qt6ct
-* [ ] Kvantum
-* [ ] environment validation
-* [ ] doctor integration
+**Icon size does not reach GTK or Qt.** Neither toolkit has a global
+icon-size setting, so there is nothing to write: `icons.size` reaches Rofi and
+stops there. This was asked for and cannot be delivered, so it is documented
+where it applies rather than promised everywhere.
+
+Three things this phase forced:
+
+**The adapter file set is no longer always fixed.** Whether a Qt 5 platform
+theme or a GTK stylesheet should exist is a decision, not a constant. Rather
+than push a configuration argument through every adapter, the few that need one
+implement an optional extension:
+
+```go
+type Configurable interface {
+	FilesFor(cfg config.Config) []File
+	ConfigPathsFor(cfg config.Config) []ManagedPath
+}
+```
+
+`adapter.FilesOf` and `adapter.ConfigPathsOf` use it when present. Existing
+adapters were untouched; `ownership.BuildPlan` gained a config argument.
+
+**One rendered file can deploy to several places.** GTK 3 and GTK 4 read the
+same keys from separate directories, so `gtk/settings.ini` links into both.
+Rendering it twice would let them drift.
+
+**The session needs an environment file.** Sway's configuration language cannot
+export a variable, and a generated `qt5ct.conf` that nothing points
+`QT_QPA_PLATFORMTHEME` at is inert. The Sway adapter therefore writes
+`environment.d/50-rice.conf` with the cursor and the platform theme. It is read
+by the systemd user manager at login, so it needs a fresh session rather than a
+reload — reported honestly as new-instances-only rather than claiming a reload
+Rice cannot perform.
+
+The palette-to-libadwaita stylesheet (`gtk.css`) is **off by default**. It is
+the one part of toolkit integration that changes how applications look rather
+than only which theme they load, and a GTK application fighting its own theme
+looks worse than one that ignores Rice.
 
 ---
 

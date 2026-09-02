@@ -15,6 +15,8 @@ type Config struct {
 	Foot     Foot     `toml:"foot"`
 	Dunst    Dunst    `toml:"dunst"`
 	Swaylock Swaylock `toml:"swaylock"`
+	GTK      GTK      `toml:"gtk"`
+	Qt       Qt       `toml:"qt"`
 }
 
 // Components selects which applications Rice generates configuration for.
@@ -25,6 +27,8 @@ type Components struct {
 	Foot     bool `toml:"foot"`
 	Dunst    bool `toml:"dunst"`
 	Swaylock bool `toml:"swaylock"`
+	GTK      bool `toml:"gtk"`
+	Qt       bool `toml:"qt"`
 }
 
 // Enabled reports whether a component name is turned on.
@@ -42,6 +46,10 @@ func (c Components) Enabled(name string) bool {
 		return c.Dunst
 	case "swaylock":
 		return c.Swaylock
+	case "gtk":
+		return c.GTK
+	case "qt":
+		return c.Qt
 	}
 	return false
 }
@@ -93,6 +101,17 @@ type Sway struct {
 	Keyboard Keyboard `toml:"keyboard"`
 	Touchpad Touchpad `toml:"touchpad"`
 	Idle     Idle     `toml:"idle"`
+
+	// WriteEnvironment writes environment.d/50-rice.conf, which is where the
+	// cursor and the Qt platform theme have to be set: Sway's configuration
+	// language cannot export a variable, and a generated qt5ct.conf that
+	// nothing points QT_QPA_PLATFORMTHEME at is inert.
+	//
+	// The file is read by the systemd user manager at login, so a change to it
+	// needs a fresh session rather than a reload.
+	WriteEnvironment bool `toml:"write_environment"`
+	// Environment is extra variables to put in that file.
+	Environment map[string]string `toml:"environment"`
 
 	Extra string `toml:"extra"`
 }
@@ -236,6 +255,34 @@ type Dunst struct {
 	TimeoutCritical int    `toml:"timeout_critical"`
 	MaxIconSize     int    `toml:"max_icon_size"`
 	Extra           string `toml:"extra"`
+}
+
+// GTK selects which toolkit files Rice writes. GTK has no global icon-size
+// setting, so the theme's icons.size does not reach it: what Rice can set is
+// the theme, the icon theme, the font, the cursor and the dark preference.
+type GTK struct {
+	// Settings writes gtk-3.0/settings.ini and gtk-4.0/settings.ini.
+	Settings bool `toml:"settings"`
+	// CSS writes a small gtk.css that maps the palette onto the libadwaita
+	// named colors, so GTK4 applications pick up the accent and the window
+	// background. GTK3 applications honour far less of it.
+	CSS bool `toml:"css"`
+	// ExtraCSS is appended to the generated gtk.css.
+	ExtraCSS string `toml:"extra_css"`
+}
+
+// Qt describes the Qt platform theme files. Kvantum and the icon theme come
+// from the theme's [gtk] block, which carries the toolkit hints.
+type Qt struct {
+	// Qt5ct and Qt6ct write the matching platform theme configuration.
+	Qt5ct bool `toml:"qt5ct"`
+	Qt6ct bool `toml:"qt6ct"`
+	// Kvantum writes Kvantum/kvantum.kvconfig selecting the theme's Kvantum
+	// theme. It has no effect unless the Kvantum style is installed.
+	Kvantum bool `toml:"kvantum"`
+	// PlatformTheme is what QT_QPA_PLATFORMTHEME should be set to. It is not
+	// exported by Rice; it is written into the Sway session environment.
+	PlatformTheme string `toml:"platform_theme"`
 }
 
 // Swaylock describes the lock screen.

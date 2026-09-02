@@ -12,6 +12,8 @@ import (
 	"github.com/dborovcanin/rice/internal/adapter"
 	"github.com/dborovcanin/rice/internal/adapter/dunst"
 	"github.com/dborovcanin/rice/internal/adapter/foot"
+	"github.com/dborovcanin/rice/internal/adapter/gtk"
+	"github.com/dborovcanin/rice/internal/adapter/qt"
 	"github.com/dborovcanin/rice/internal/adapter/rofi"
 	"github.com/dborovcanin/rice/internal/adapter/sway"
 	"github.com/dborovcanin/rice/internal/adapter/swaylock"
@@ -44,6 +46,7 @@ func newSession(t *testing.T) (*session.Session, *command.Fake, string) {
 		Registry: adapter.NewRegistry(
 			sway.New(), waybar.New(), rofi.New(),
 			foot.New(), dunst.New(), swaylock.New(),
+			gtk.New(), qt.New(),
 		),
 		Engine:      render.NewEngine("", rice.Templates, "templates"),
 		Runner:      runner,

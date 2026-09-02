@@ -179,12 +179,22 @@ kvantum_theme = "KvGnomeDark"
 qt_style_override = "kvantum"
 ```
 
-`icons.theme` feeds Dunst and, unless `rofi.icon_theme` overrides it, Rofi.
-`icons.size` is the pixel size icons are drawn at, and is what Rofi sizes its
-launcher icons from; it defaults to 24. `icons.paths` is Dunst's icon lookup
-path. `cursor` becomes the Sway seat cursor theme. `[gtk]` is parsed and available to templates as `.GTK`, but no built-in
-template uses it yet: it is there for the GTK/Qt integration that comes with
-deployment.
+`icons.theme` feeds Dunst, GTK, Qt and, unless `rofi.icon_theme` overrides it,
+Rofi. `icons.paths` is Dunst's icon lookup path.
+
+`icons.size` is the pixel size icons are drawn at, and reaches Rofi's launcher
+icons; it defaults to 24. It does **not** reach GTK or Qt: neither toolkit has
+a global icon-size setting, so there is nothing for Rice to write.
+
+`cursor` becomes the Sway seat cursor theme, the GTK cursor setting, and
+`XCURSOR_THEME`/`XCURSOR_SIZE` in the session environment.
+
+`[gtk]` carries the toolkit hints that have no equivalent in the semantic
+palette: `theme` is the GTK widget theme, `prefer_dark` the dark preference,
+`kvantum_theme` the Kvantum theme, and `qt_style_override` the Qt widget style
+— set it to `kvantum` to use Kvantum. Which files these end up in is a
+configuration decision: see [`[gtk]`](configuration.md#gtk) and
+[`[qt]`](configuration.md#qt).
 
 ---
 

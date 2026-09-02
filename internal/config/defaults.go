@@ -13,6 +13,8 @@ func DefaultConfig() Config {
 			Foot:     true,
 			Dunst:    true,
 			Swaylock: true,
+			GTK:      true,
+			Qt:       true,
 		},
 		Generations: Generations{Keep: 10},
 		Commands:    defaultCommands(),
@@ -22,6 +24,28 @@ func DefaultConfig() Config {
 		Foot:        defaultFoot(),
 		Dunst:       defaultDunst(),
 		Swaylock:    defaultSwaylock(),
+		GTK:         defaultGTK(),
+		Qt:          defaultQt(),
+	}
+}
+
+func defaultGTK() GTK {
+	return GTK{
+		Settings: true,
+		// The palette mapping is off by default: it is the one part of
+		// toolkit integration that changes how applications look rather than
+		// only which theme they load, and a GTK application that fights its
+		// own theme looks worse than one that ignores Rice.
+		CSS: false,
+	}
+}
+
+func defaultQt() Qt {
+	return Qt{
+		Qt5ct:         true,
+		Qt6ct:         true,
+		Kvantum:       true,
+		PlatformTheme: "qt5ct",
 	}
 }
 
@@ -47,6 +71,7 @@ func defaultCommands() Commands {
 
 func defaultSway() Sway {
 	return Sway{
+		WriteEnvironment:  true,
 		Mod:               "Mod4",
 		WallpaperMode:     "fill",
 		SmartBorders:      true,

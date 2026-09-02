@@ -153,6 +153,11 @@ where they are already comfortable to edit by hand.
 | `foot` | Server mode, shell, TERM, scrollback, padding, cursor style and blink |
 | `dunst` | Origin, size, offset, gap, follow, the three timeouts, max icon size |
 | `swaylock` | Image and scaling, blur, indicator radius and thickness, failed attempts, clock |
+| `gtk` | Whether to write `settings.ini` and the palette stylesheet |
+| `qt` | Whether to write qt5ct, qt6ct and Kvantum, and the platform theme |
+
+`gtk` and `qt` have no preview: they configure other people's applications
+rather than one of their own. Copy their generated files instead.
 
 A preview renders the whole draft into a private directory under the system
 temporary directory, validates it exactly as a real build would, and launches

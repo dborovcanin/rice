@@ -86,7 +86,7 @@ func (f fixture) writeTarget(t *testing.T, rel, content string) string {
 
 func (f fixture) plan(t *testing.T) Plan {
 	t.Helper()
-	plan, err := BuildPlan(f.adapters, f.paths, f.configDir)
+	plan, err := BuildPlan(f.adapters, config.DefaultConfig(), f.paths, f.configDir)
 	if err != nil {
 		t.Fatalf("BuildPlan: %v", err)
 	}
@@ -422,7 +422,7 @@ func TestRelinkRepairsWithoutAdopting(t *testing.T) {
 	adopted := f.writeTarget(t, "foot/foot.ini", "original\n")
 
 	// Adopt foot only, so sway stays a path Rice has never been given.
-	footOnly, err := BuildPlan(f.adapters[:1], f.paths, f.configDir)
+	footOnly, err := BuildPlan(f.adapters[:1], config.DefaultConfig(), f.paths, f.configDir)
 	if err != nil {
 		t.Fatal(err)
 	}

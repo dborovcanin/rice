@@ -11,6 +11,8 @@ import (
 	"github.com/dborovcanin/rice/internal/adapter"
 	"github.com/dborovcanin/rice/internal/adapter/dunst"
 	"github.com/dborovcanin/rice/internal/adapter/foot"
+	"github.com/dborovcanin/rice/internal/adapter/gtk"
+	"github.com/dborovcanin/rice/internal/adapter/qt"
 	"github.com/dborovcanin/rice/internal/adapter/rofi"
 	"github.com/dborovcanin/rice/internal/adapter/sway"
 	"github.com/dborovcanin/rice/internal/adapter/swaylock"
@@ -70,6 +72,8 @@ func NewApp(root, configDir string) (*App, error) {
 		foot.New(),
 		dunst.New(),
 		swaylock.New(),
+		gtk.New(),
+		qt.New(),
 	)
 	engine := render.NewEngine(paths.TemplatesDir, rice.Templates, "templates")
 	builder := generation.NewBuilder(engine, registry, rice.Version)
@@ -118,7 +122,7 @@ func (a *App) Plan(cfg config.Config) (ownership.Plan, error) {
 	if err != nil {
 		return ownership.Plan{}, err
 	}
-	return ownership.BuildPlan(adapters, a.Paths, a.ConfigDir)
+	return ownership.BuildPlan(adapters, cfg, a.Paths, a.ConfigDir)
 }
 
 // Config loads the user's configuration, falling back to complete defaults

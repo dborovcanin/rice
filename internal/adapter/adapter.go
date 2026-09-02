@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io/fs"
 	"sort"
+
+	"github.com/dborovcanin/rice/internal/config"
 )
 
 // ReloadMode records how an application picks up new configuration. Rice does
@@ -83,6 +85,37 @@ type Adapter interface {
 	// Validate checks generated content before it becomes a generation.
 	// dir is the generation root; a nil error means the output is usable.
 	Validate(dir string) error
+}
+
+// Configurable is implemented by an adapter whose set of files depends on the
+// user's configuration rather than being fixed.
+//
+// Most adapters generate the same files every time: Foot always writes one
+// foot.ini. Toolkit integration does not, because whether a Qt 5 platform
+// theme or a GTK stylesheet should exist is a decision, not a constant. Rather
+// than push a configuration argument through every adapter, the few that need
+// one implement this.
+type Configurable interface {
+	// FilesFor is Files, narrowed by the configuration.
+	FilesFor(cfg config.Config) []File
+	// ConfigPathsFor is ConfigPaths, narrowed by the configuration.
+	ConfigPathsFor(cfg config.Config) []ManagedPath
+}
+
+// FilesOf returns the files an adapter generates for a configuration.
+func FilesOf(a Adapter, cfg config.Config) []File {
+	if c, ok := a.(Configurable); ok {
+		return c.FilesFor(cfg)
+	}
+	return a.Files()
+}
+
+// ConfigPathsOf returns the paths an adapter manages for a configuration.
+func ConfigPathsOf(a Adapter, cfg config.Config) []ManagedPath {
+	if c, ok := a.(Configurable); ok {
+		return c.ConfigPathsFor(cfg)
+	}
+	return a.ConfigPaths()
 }
 
 // Registry holds the available adapters by name.

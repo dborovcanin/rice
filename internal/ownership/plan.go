@@ -107,11 +107,11 @@ func (p Plan) Empty() bool { return len(p.Changes()) == 0 }
 
 // BuildPlan works out what each enabled component's configuration paths need,
 // without modifying anything. Callers are expected to show it before acting.
-func BuildPlan(adapters []adapter.Adapter, paths config.Paths, configDir string) (Plan, error) {
+func BuildPlan(adapters []adapter.Adapter, cfg config.Config, paths config.Paths, configDir string) (Plan, error) {
 	plan := Plan{Root: paths.Root, ConfigDir: configDir}
 
 	for _, a := range adapters {
-		for _, managed := range a.ConfigPaths() {
+		for _, managed := range adapter.ConfigPathsOf(a, cfg) {
 			target := filepath.Join(configDir, filepath.FromSlash(managed.Target))
 			linkTo := filepath.Join(paths.Current, filepath.FromSlash(managed.Source))
 

@@ -172,8 +172,6 @@ second implementation.
   cancelled explicitly, so slider movements do not create hundreds of
   generations. The editor's sandbox preview is a different thing: it never
   moves `current`.
-* **GTK / Qt** — toolkit integration. The theme already carries `[gtk]` and
-  `icons.size`, but no template consumes `[gtk]`.
 * **Desktop utilities** — `rice run volume|brightness|screenshot|...`, so
   bindings stop pointing at ad-hoc shell scripts.
 * **`rice theme from-image`** — deriving a palette from a wallpaper.

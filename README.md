@@ -16,18 +16,18 @@ themes/*.toml  +  config.toml
              current              one symlink
 ```
 
-One theme drives SwayFX, Waybar, Rofi, Foot, Dunst and swaylock at once, so the
-whole desktop stays consistent. Generated files are ordinary, readable
+One theme drives SwayFX, Waybar, Rofi, Foot, Dunst, swaylock and the GTK/Qt
+toolkits at once, so the whole desktop stays consistent. Generated files are ordinary, readable
 application configuration: nothing depends on Rice being installed to work.
 
 ## Status
 
 Working: themes, templates, adapters, output validation, generations, `current`
 switching, rollback, ownership detection, adoption with backups, deployment by
-symlink, reload, uninstall, and the interactive editor.
+symlink, reload, uninstall, GTK/Qt integration, and the interactive editor.
 
-Not yet: live preview as a committed generation, GTK/Qt integration, the
-`rice run` desktop utilities, and a GUI.
+Not yet: live preview as a committed generation, the `rice run` desktop
+utilities, and a GUI.
 
 Nothing under `~/.config` is touched until you run `rice setup --adopt`, and
 that command is a dry run without the flag.
@@ -86,8 +86,10 @@ The result:
 ~/.config/rice/current/
 ├── dunst/dunstrc
 ├── foot/foot.ini
+├── gtk/settings.ini
+├── qt/qt5ct.conf, qt6ct.conf, kvantum.kvconfig
 ├── rofi/config.rasi
-├── sway/config
+├── sway/config, environment.conf
 ├── swaylock/config
 └── waybar/config.jsonc, style.css
 ```

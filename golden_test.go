@@ -4,12 +4,15 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	rice "github.com/dborovcanin/rice"
 	"github.com/dborovcanin/rice/internal/adapter"
 	"github.com/dborovcanin/rice/internal/adapter/dunst"
 	"github.com/dborovcanin/rice/internal/adapter/foot"
+	"github.com/dborovcanin/rice/internal/adapter/gtk"
+	"github.com/dborovcanin/rice/internal/adapter/qt"
 	"github.com/dborovcanin/rice/internal/adapter/rofi"
 	"github.com/dborovcanin/rice/internal/adapter/sway"
 	"github.com/dborovcanin/rice/internal/adapter/swaylock"
@@ -36,6 +39,8 @@ func newBuilder() *generation.Builder {
 		foot.New(),
 		dunst.New(),
 		swaylock.New(),
+		gtk.New(),
+		qt.New(),
 	)
 	return generation.NewBuilder(engine, registry, rice.Version)
 }
@@ -176,4 +181,95 @@ func contains(haystack, needle string) bool {
 		}
 		return false
 	})()
+}
+
+// TestOptionalToolkitFiles renders the toolkit files the default configuration
+// leaves out. Without this, the templates behind an off-by-default setting
+// could rot unnoticed: the golden run never reaches them.
+func TestOptionalToolkitFiles(t *testing.T) {
+	builder := newBuilder()
+
+	cfg := config.DefaultConfig()
+	cfg.GTK.CSS = true
+	cfg.GTK.ExtraCSS = "/* appended */"
+	cfg.Normalize()
+
+	themes := theme.NewStore("", rice.Themes, "themes")
+	th, err := themes.Load("tokyo-night")
+	if err != nil {
+		t.Fatalf("load theme: %v", err)
+	}
+
+	dir := t.TempDir()
+	if _, err := builder.Build(dir, cfg, th, 1, generation.BuildOptions{}); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "gtk", "gtk.css"))
+	if err != nil {
+		t.Fatalf("read gtk.css: %v", err)
+	}
+	css := string(data)
+
+	// The stylesheet exists to carry the palette into libadwaita, so the
+	// palette had better be in it.
+	for _, want := range []string{
+		"@define-color accent_color " + th.Colors.Primary.String(),
+		"@define-color window_bg_color " + th.Colors.Background.String(),
+		"/* appended */",
+	} {
+		if !strings.Contains(css, want) {
+			t.Errorf("gtk.css is missing %q", want)
+		}
+	}
+}
+
+// TestEnvironmentFileCarriesTheCursor guards the one generated file that
+// affects the whole session rather than a single application.
+func TestEnvironmentFileCarriesTheCursor(t *testing.T) {
+	builder := newBuilder()
+
+	cfg := config.DefaultConfig()
+	cfg.Sway.Environment = map[string]string{"MOZ_ENABLE_WAYLAND": "1"}
+	cfg.Normalize()
+
+	themes := theme.NewStore("", rice.Themes, "themes")
+	th, err := themes.Load("gruvbox-dark")
+	if err != nil {
+		t.Fatalf("load theme: %v", err)
+	}
+
+	dir := t.TempDir()
+	if _, err := builder.Build(dir, cfg, th, 1, generation.BuildOptions{}); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "sway", "environment.conf"))
+	if err != nil {
+		t.Fatalf("read environment.conf: %v", err)
+	}
+	env := string(data)
+
+	for _, want := range []string{
+		"XCURSOR_THEME=" + th.Cursor.Theme,
+		"XCURSOR_SIZE=28",
+		"QT_QPA_PLATFORMTHEME=qt5ct",
+		"MOZ_ENABLE_WAYLAND=1",
+	} {
+		if !strings.Contains(env, want) {
+			t.Errorf("environment.conf is missing %q", want)
+		}
+	}
+
+	// Turning the Qt component off must take its variable with it, or the
+	// session points at a platform theme with no configuration behind it.
+	cfg.Components.Qt = false
+	dir = t.TempDir()
+	if _, err := builder.Build(dir, cfg, th, 1, generation.BuildOptions{}); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	data, _ = os.ReadFile(filepath.Join(dir, "sway", "environment.conf"))
+	if strings.Contains(string(data), "QT_QPA_PLATFORMTHEME") {
+		t.Error("QT_QPA_PLATFORMTHEME survived turning the Qt component off")
+	}
 }

@@ -145,7 +145,7 @@ touched:
 | sway | hot | `swaymsg reload` |
 | dunst | signal | `dunstctl reload` |
 | waybar | signal | `pkill -SIGUSR2 -x waybar` |
-| rofi, foot, swaylock | new instances only | nothing |
+| rofi, foot, swaylock, gtk, qt | new instances only | nothing |
 
 A component that is not running is reported, not treated as a failure. Rice
 checks with `pgrep` first; without `pgrep` it attempts the reload rather than
@@ -158,6 +158,34 @@ rice apply --no-reload      # deploy without poking anything
 Foot deserves a note: a running terminal keeps its palette, and the foot server
 only applies a new one to terminals opened afterwards. Open a new terminal to
 see a theme change, or restart the server.
+
+GTK and Qt deserve a longer one. Their configuration is read when an
+application starts, so a running program keeps the theme it launched with —
+restart it. The session environment goes further: `environment.d/50-rice.conf`
+is read by the systemd user manager at login, so `XCURSOR_THEME`,
+`XCURSOR_SIZE` and `QT_QPA_PLATFORMTHEME` only change after a fresh session.
+Rice reports these as new-instances-only rather than claiming a reload it
+cannot perform.
+
+Toolkit integration also adds paths outside the one-file-per-application
+pattern the rest of Rice follows:
+
+| Source in a generation | Deployed to |
+| --- | --- |
+| `gtk/settings.ini` | `gtk-3.0/settings.ini` **and** `gtk-4.0/settings.ini` |
+| `gtk/gtk.css` | `gtk-3.0/gtk.css` **and** `gtk-4.0/gtk.css` |
+| `qt/qt5ct.conf` | `qt5ct/qt5ct.conf` |
+| `qt/qt6ct.conf` | `qt6ct/qt6ct.conf` |
+| `qt/kvantum.kvconfig` | `Kvantum/kvantum.kvconfig` |
+| `sway/environment.conf` | `environment.d/50-rice.conf` |
+
+One rendered file linking into two places is deliberate: GTK 3 and GTK 4 read
+the same keys from separate directories, and generating the file twice would
+let them drift.
+
+Which of these exist at all depends on `[gtk]` and `[qt]` in `config.toml`, so
+turning `gtk.css` off removes it from the plan rather than leaving a stale
+symlink behind.
 
 ## Uninstall
 

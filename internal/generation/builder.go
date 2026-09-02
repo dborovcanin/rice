@@ -52,7 +52,7 @@ func (b *Builder) Render(cfg config.Config, th theme.Theme, generation int) ([]R
 
 	var out []Rendered
 	for _, a := range adapters {
-		for _, f := range a.Files() {
+		for _, f := range adapter.FilesOf(a, cfg) {
 			content, err := b.Engine.Render(f.Template, ctx)
 			if err != nil {
 				return nil, fmt.Errorf("component %s: %w", a.Name(), err)

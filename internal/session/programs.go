@@ -32,6 +32,8 @@ func buildProgramFields() {
 		"foot":     footFields(),
 		"dunst":    dunstFields(),
 		"swaylock": swaylockFields(),
+		"gtk":      gtkFields(),
+		"qt":       qtFields(),
 	}
 
 	for _, fields := range programFields {
@@ -90,6 +92,8 @@ func swayFields() []Field {
 			func(d *Draft) *bool { return &d.Config.Sway.FocusFollowsMouse }),
 		pBool("sway.titlebar", "Titlebars", "draw a titlebar on tiled windows",
 			func(d *Draft) *bool { return &d.Config.Sway.Titlebar }),
+		pBool("sway.write_environment", "Session environment", "write environment.d/50-rice.conf; needs a re-login",
+			func(d *Draft) *bool { return &d.Config.Sway.WriteEnvironment }),
 	}
 }
 
@@ -144,6 +148,29 @@ func footFields() []Field {
 			func(d *Draft) *string { return &d.Config.Foot.CursorStyle }),
 		pBool("foot.cursor_blink", "Cursor blink", "",
 			func(d *Draft) *bool { return &d.Config.Foot.CursorBlink }),
+	}
+}
+
+func gtkFields() []Field {
+	return []Field{
+		pBool("gtk.settings", "Settings file", "write gtk-3.0 and gtk-4.0 settings.ini",
+			func(d *Draft) *bool { return &d.Config.GTK.Settings }),
+		pBool("gtk.css", "Palette stylesheet", "map the palette onto libadwaita's named colors",
+			func(d *Draft) *bool { return &d.Config.GTK.CSS }),
+	}
+}
+
+func qtFields() []Field {
+	return []Field{
+		pBool("qt.qt5ct", "qt5ct", "write the Qt 5 platform theme",
+			func(d *Draft) *bool { return &d.Config.Qt.Qt5ct }),
+		pBool("qt.qt6ct", "qt6ct", "write the Qt 6 platform theme",
+			func(d *Draft) *bool { return &d.Config.Qt.Qt6ct }),
+		pBool("qt.kvantum", "Kvantum", "select the theme's Kvantum theme",
+			func(d *Draft) *bool { return &d.Config.Qt.Kvantum }),
+		pChoice("qt.platform_theme", "Platform theme", "what QT_QPA_PLATFORMTHEME is set to",
+			[]string{"qt5ct", "qt6ct", "gtk2", "gnome"},
+			func(d *Draft) *string { return &d.Config.Qt.PlatformTheme }),
 	}
 }
 
