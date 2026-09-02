@@ -1,5 +1,68 @@
 # Rice — SwayFX Desktop Configuration & Theming Tool
 
+---
+
+# Implementation log — 2026-09-02
+
+What was built in one session, newest last. Every item is on `main` and
+pushed; `make check` passes at each commit.
+
+| Commit | What |
+| --- | --- |
+| Add an interactive theme editor | `rice tui`, `internal/session`, sandbox preview, fonts, clipboard, `icons.size` |
+| Edit per-program settings in the editor | per-program settings pane, `session.Draft` |
+| Generate GTK and Qt configuration | `gtk` and `qt` components, session environment file |
+| Check that a theme's assets exist | `internal/doctor`, folded into `rice status` |
+| Pick installed themes instead of typing their names | `internal/assets`, pickers for icon/cursor/GTK/Kvantum themes |
+| Complete theme, component and generation names | dynamic shell completion, CI workflow |
+| Do not mistake an empty configuration for an absent one | correctness fix in `SetBase` |
+| Add a live preview that never commits | `rice preview` / `commit` / `cancel` / `status` |
+| Derive a theme from an image | `rice theme from-image`, `internal/palette`, `theme.Encode` |
+| Apply a derived theme and its wallpaper together | `--apply` and `--wallpaper`, first `internal/cli` tests |
+
+## The one design decision worth knowing about
+
+The editor holds a theme in **source form**, not resolved form — see
+section 28. A theme file's unset field means "derive this for me", and keeping
+that distinction is what lets an edit to `colors.background` still move
+everything derived from it. It cost `theme.ParseSource`, `Store.LoadSource`,
+`Theme.Resolved`, `omitempty` on the whole theme model and eventually
+`theme.Encode`, and it paid for itself twice: once in the editor, once in
+`from-image`, which can leave two thirds of a theme unset because normalization
+will fill it in.
+
+## Try it in this order
+
+```bash
+make build
+./build/rice                                    # the editor
+./build/rice status                             # what is missing on this machine
+./build/rice preview tokyo-night                # live, uncommitted
+./build/rice theme from-image ~/Pictures/x.jpg  # a palette from a wallpaper
+```
+
+## Two things that need you
+
+* **`rice status` will warn about `QT_QPA_PLATFORMTHEME`** until you log out and
+  back in. Rice writes `environment.d/50-rice.conf`, which the systemd user
+  manager reads at login; there is no way to set it from inside a Sway config.
+* **`icons.size` does not reach GTK or Qt.** Neither toolkit has a global
+  icon-size setting, so there is nothing to write. It reaches Rofi and stops
+  there. This was asked for and cannot be delivered; it is documented where it
+  applies rather than promised everywhere.
+
+## What is left
+
+* Per-program **list** editing — outputs, workspaces, bindings and window rules
+  are still file-only. The scalar settings are done.
+* `rice run` desktop utilities (section 47).
+* `doctor` integration for toolkit environment validation is partly done; the
+  dependency checks for `rice run` wait on that command existing.
+* Screenshots for the README.
+* A GUI, which stays post-v1.0 (section 38).
+
+---
+
 ## 1. Project Overview
 
 **Rice** is a lightweight configuration, theming, and desktop-utility manager for a minimal Wayland environment built around:
