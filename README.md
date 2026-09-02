@@ -221,6 +221,7 @@ Generations are immutable. Edits belong in `config.toml` or a theme, followed by
 | [docs/configuration.md](docs/configuration.md) | Every `config.toml` key |
 | [docs/themes.md](docs/themes.md) | The theme format and what gets derived |
 | [docs/templates.md](docs/templates.md) | Overriding templates, context, functions |
+| [docs/adding-a-program.md](docs/adding-a-program.md) | Teaching Rice a new application |
 | [docs/architecture.md](docs/architecture.md) | How the pieces fit, and what is missing |
 
 The sections below are the short version.

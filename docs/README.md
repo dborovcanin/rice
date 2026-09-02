@@ -12,6 +12,8 @@
   templates see, the full function set, and how generated output is validated.
 * **[editor.md](editor.md)** — the interactive editor: picking and tweaking a
   theme, what derived means, previewing a program, copying a config, saving.
+* **[adding-a-program.md](adding-a-program.md)** — the checklist for teaching
+  Rice a new application, in the order it has to happen.
 * **[architecture.md](architecture.md)** — how the four kinds of state fit
   together, why generation is transactional, and what is not implemented yet.
 

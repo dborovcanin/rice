@@ -19,6 +19,12 @@ pushed; `make check` passes at each commit.
 | Add a live preview that never commits | `rice preview` / `commit` / `cancel` / `status` |
 | Derive a theme from an image | `rice theme from-image`, `internal/palette`, `theme.Encode` |
 | Apply a derived theme and its wallpaper together | `--apply` and `--wallpaper`, first `internal/cli` tests |
+| Add an implementation log to build.md | this section |
+| Mark absent themes and view generated output | "not installed" marker, `v` to view generated config |
+| Show what applying would change | `rice diff`, `internal/diff`, verified against real `patch` |
+| Show the draft's diff from inside the editor | `d` in the editor |
+| Give a derived theme everything an image cannot say | inheritance for `from-image`, no empty template values |
+| Document adding a program | `docs/adding-a-program.md` |
 
 ## The one design decision worth knowing about
 
@@ -87,9 +93,9 @@ this affects a theme that does name them — and exactly why nothing caught it.
 
 * Per-program **list** editing — outputs, workspaces, bindings and window rules
   are still file-only. The scalar settings are done.
-* `rice run` desktop utilities (section 47).
-* `doctor` integration for toolkit environment validation is partly done; the
-  dependency checks for `rice run` wait on that command existing.
+* `rice run` desktop utilities (section 47) — **left unstarted deliberately**:
+  it conflicts with the Independence invariant, and which way to resolve that
+  is a decision for you. See the end of section 35.
 * Screenshots for the README.
 * A GUI, which stays post-v1.0 (section 38).
 
@@ -1756,6 +1762,32 @@ project = "~/.config/rice/scripts/project"
 ```
 
 If configured, Rice can defer to the custom implementation.
+
+## Unresolved: this conflicts with Independence
+
+Section 55 says removing Rice must leave standard applications and standard
+configuration formats behind. A generated Sway config whose bindings call
+`rice run screenshot` does not satisfy that: uninstall restores backups, it
+does not rewrite bindings, so the desktop is left calling a program that is
+gone.
+
+The two can be reconciled, but only by choosing:
+
+1. **`rice run` stays opt-in.** The default bindings keep calling `grim`,
+   `wpctl` and the rest, and `[commands]` — which already exists — is where
+   someone opts in. Independence holds; the shell pipelines stay in the
+   default configuration.
+2. **`rice run` becomes the default and Independence weakens** to "leaves
+   standard configuration formats behind", accepting that some bindings need
+   Rice installed.
+3. **Uninstall rewrites bindings** back to their plain equivalents. This keeps
+   both promises and is the most work, and it means Rice edits a file it
+   handed back, which it otherwise never does.
+
+Option 1 is the smallest and keeps every existing promise, but it also makes
+`rice run` a nicety rather than the point — which is worth knowing before
+building nine utilities. **This decision is yours; phase 5 was left unstarted
+because of it, not because of time.**
 
 ---
 
