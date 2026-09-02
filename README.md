@@ -26,8 +26,8 @@ Working: themes, templates, adapters, output validation, generations, `current`
 switching, rollback, ownership detection, adoption with backups, deployment by
 symlink, reload, uninstall, and the interactive editor.
 
-Not yet: per-program overrides in the editor, live preview as a committed
-generation, GTK/Qt integration, the `rice run` desktop utilities, and a GUI.
+Not yet: live preview as a committed generation, GTK/Qt integration, the
+`rice run` desktop utilities, and a GUI.
 
 Nothing under `~/.config` is touched until you run `rice setup --adopt`, and
 that command is a dry run without the flag.
@@ -116,6 +116,10 @@ Pick a theme, adjust its colors, fonts, sizing, icons and cursor, then preview
 any component by running the real application against the draft — Foot, Rofi,
 Waybar or a nested Sway, rendered into a private temporary directory. Nothing
 under `~/.config` is touched and `current` does not move unless you apply.
+
+Per-program settings are editable too — bar height, launcher width, terminal
+padding, notification timeouts — and are saved to `config.toml` rather than the
+theme, so they survive a change of palette.
 
 The editor also copies a single program's generated configuration to the
 clipboard, so Rice is usable as a configuration generator without adopting the

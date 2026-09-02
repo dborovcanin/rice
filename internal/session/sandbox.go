@@ -78,7 +78,7 @@ func (s *Session) LaunchFor(component string) (Launch, error) {
 	if _, err := s.registry.Get(component); err != nil {
 		return Launch{}, err
 	}
-	if !s.Config.Components.Enabled(component) {
+	if !s.Draft.Config.Components.Enabled(component) {
 		return Launch{}, fmt.Errorf("%s is not enabled in config.toml", component)
 	}
 
@@ -98,7 +98,7 @@ func (s *Session) LaunchFor(component string) (Launch, error) {
 // Render produces every enabled component's files from the draft, in memory.
 // It renders the resolved theme, which is what a real build would use.
 func (s *Session) Render() ([]generation.Rendered, error) {
-	return s.builder.Render(s.Config, s.resolved, sandboxGeneration)
+	return s.builder.Render(s.resolved.Config, s.resolved.Theme, sandboxGeneration)
 }
 
 // Sandbox renders the draft into a fresh private directory and validates it,

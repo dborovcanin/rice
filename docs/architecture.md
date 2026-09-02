@@ -147,7 +147,12 @@ operations on it. The editor itself holds only cursor position, focus and
 filter text; every value the user changes goes through the session, which is
 where that logic is tested.
 
-The session keeps the draft in **source form** — exactly as a theme file is
+A draft is both the theme being edited and the configuration it renders
+against, so a palette color and a bar's height are the same kind of thing to
+the interface. They are saved to different files: appearance to a theme,
+structure to `config.toml`.
+
+The session keeps the theme in **source form** — exactly as a theme file is
 written, with unset fields still unset — and normalizes a copy for rendering.
 That is what makes editing behave like editing the file: a value the theme
 leaves derived keeps following whatever it is derived from, and a value the
@@ -167,8 +172,6 @@ second implementation.
   cancelled explicitly, so slider movements do not create hundreds of
   generations. The editor's sandbox preview is a different thing: it never
   moves `current`.
-* **Per-program overrides** — the editor's program screen previews and copies
-  today; editing a single program's settings there comes next.
 * **GTK / Qt** — toolkit integration. The theme already carries `[gtk]` and
   `icons.size`, but no template consumes `[gtk]`.
 * **Desktop utilities** — `rice run volume|brightness|screenshot|...`, so

@@ -441,7 +441,130 @@ func TestSetBaseDiscardsDraft(t *testing.T) {
 	if s.Dirty() {
 		t.Error("choosing a new base theme should discard the draft")
 	}
-	if s.Base.Name != "tokyo-night" {
-		t.Errorf("base = %q, want tokyo-night", s.Base.Name)
+	if s.Base.Theme.Name != "tokyo-night" {
+		t.Errorf("base = %q, want tokyo-night", s.Base.Theme.Name)
+	}
+}
+
+func TestProgramFieldsAreConfigNotTheme(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	if len(session.ProgramFields("waybar")) == 0 {
+		t.Fatal("waybar has no editable settings")
+	}
+	if len(session.ProgramFields("nonesuch")) != 0 {
+		t.Error("an unknown component should have no settings")
+	}
+
+	if err := s.Set("waybar.height", "42"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if got, _ := s.Get("waybar.height"); got != "42" {
+		t.Errorf("height = %q, want 42", got)
+	}
+	if s.Config().Waybar.Height != 42 {
+		t.Errorf("config height = %d, want 42", s.Config().Waybar.Height)
+	}
+
+	// A program setting is not a theme override, because it is saved to a
+	// different file.
+	if s.ThemeDirty() {
+		t.Error("editing a program setting should not dirty the theme")
+	}
+	if !s.ConfigDirty() || !s.Dirty() {
+		t.Error("editing a program setting should dirty the configuration")
+	}
+
+	// It reaches the rendered output.
+	text, err := s.ComponentText("waybar")
+	if err != nil {
+		t.Fatalf("component text: %v", err)
+	}
+	if !strings.Contains(text, `"height": 42`) {
+		t.Error("waybar config does not carry the edited height")
+	}
+}
+
+func TestProgramFieldsValidateAndCycle(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	if err := s.Set("waybar.position", "sideways"); err == nil {
+		t.Error("a value outside the choices should be rejected")
+	}
+	if err := s.Set("waybar.position", "bottom"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+
+	// Nudging a choice moves through the accepted values.
+	if err := s.Nudge("waybar.position", 1); err != nil {
+		t.Fatalf("nudge: %v", err)
+	}
+	if got, _ := s.Get("waybar.position"); got != "left" {
+		t.Errorf("position = %q, want left", got)
+	}
+
+	// Nudging a switch flips it.
+	before, _ := s.Get("rofi.show_icons")
+	if err := s.Nudge("rofi.show_icons", 1); err != nil {
+		t.Fatalf("nudge: %v", err)
+	}
+	if after, _ := s.Get("rofi.show_icons"); after == before {
+		t.Error("nudging a switch should flip it")
+	}
+
+	// A program setting is never "derived": config.toml spells everything out.
+	if !s.Explicit("waybar.position") {
+		t.Error("program settings should always read as explicit")
+	}
+}
+
+func TestSaveWritesConfigOnlyWhenChanged(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	var written []config.Config
+	s.SetConfigWriter(func(cfg config.Config) error {
+		written = append(written, cfg)
+		return nil
+	})
+
+	if _, err := s.Save("no-config-change"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if len(written) != 0 {
+		t.Error("saving with no program change should not rewrite config.toml")
+	}
+
+	if err := s.Set("foot.pad_x", "12"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if _, err := s.Save("with-config-change"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if len(written) != 1 {
+		t.Fatalf("config written %d times, want once", len(written))
+	}
+	if written[0].Foot.PadX != 12 {
+		t.Errorf("written pad_x = %d, want 12", written[0].Foot.PadX)
+	}
+	if s.ConfigDirty() {
+		t.Error("the configuration should be clean after saving")
+	}
+}
+
+func TestChangingThemeKeepsProgramSettings(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	if err := s.Set("rofi.lines", "15"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if err := s.LoadBase("tokyo-night"); err != nil {
+		t.Fatalf("load base: %v", err)
+	}
+
+	if got, _ := s.Get("rofi.lines"); got != "15" {
+		t.Errorf("rofi.lines = %q, want it carried across the theme change", got)
+	}
+	if !s.ConfigDirty() {
+		t.Error("the program change should still be pending")
 	}
 }

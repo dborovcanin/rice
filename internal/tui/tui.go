@@ -90,9 +90,12 @@ type model struct {
 	groupCursor  int
 	fieldCursors map[session.Group]int
 
-	// programs state.
-	programs      []string
-	programCursor int
+	// programs state. programCursors remembers the setting cursor per
+	// program, the way the editor remembers it per group.
+	programs       []string
+	programCursor  int
+	programPane    pane
+	programCursors map[string]int
 
 	// overlay state.
 	overlay overlay
@@ -125,10 +128,11 @@ const (
 
 func newModel(opts Options) (*model, error) {
 	m := &model{
-		opts:         opts,
-		sess:         opts.Session,
-		fieldCursors: map[session.Group]int{},
-		running:      map[string]*session.Preview{},
+		opts:           opts,
+		sess:           opts.Session,
+		fieldCursors:   map[session.Group]int{},
+		programCursors: map[string]int{},
+		running:        map[string]*session.Preview{},
 		// A terminal that never reports its size still gets a usable layout
 		// rather than an empty screen.
 		width:  80,
@@ -141,7 +145,7 @@ func newModel(opts Options) (*model, error) {
 	}
 	m.themes = list
 	for i, e := range list {
-		if e.Name == m.sess.Base.Name {
+		if e.Name == m.sess.Base.Theme.Name {
 			m.pickerCursor = i
 		}
 	}
@@ -156,7 +160,7 @@ func newModel(opts Options) (*model, error) {
 }
 
 // restyle rebuilds the interface palette from the draft.
-func (m *model) restyle() { m.styles = newStyles(m.sess.Resolved()) }
+func (m *model) restyle() { m.styles = newStyles(m.sess.Theme()) }
 
 func (m *model) setStatus(l level, format string, args ...any) {
 	m.level = l
@@ -197,7 +201,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case previewExitedMsg:
 		delete(m.running, msg.component)
 		if msg.err != nil {
-			m.setStatus(levelBad, "%s preview: %v", msg.component, msg.err)
+			// A non-zero exit is ordinary here: Rofi returns 1 when it is
+			// dismissed. The message is worth showing, an alarm is not.
+			m.setStatus(levelWarn, "%s preview exited: %v", msg.component, msg.err)
 		} else {
 			m.setStatus(levelInfo, "%s preview closed", msg.component)
 		}
@@ -219,9 +225,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.busy = ""
 		if msg.err != nil {
 			m.setStatus(levelBad, "apply: %v", msg.err)
-		} else {
-			m.setStatus(levelGood, "applied %s and switched to the new generation", msg.name)
+			return m, nil
 		}
+		if list, err := m.sess.Themes(); err == nil {
+			m.themes = list
+		}
+		m.setStatus(levelGood, "applied %s and switched to the new generation", msg.name)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -245,7 +254,7 @@ func (m *model) updateScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.quit()
 	case "q":
 		if m.screen == screenPicker {
-			return m, m.quit()
+			return m, m.confirmQuit()
 		}
 	}
 
@@ -258,6 +267,19 @@ func (m *model) updateScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updatePrograms(msg)
 	}
 	return m, nil
+}
+
+// confirmQuit asks before throwing away unsaved edits, and leaves immediately
+// when there is nothing to lose.
+func (m *model) confirmQuit() tea.Cmd {
+	if !m.sess.Dirty() {
+		return m.quit()
+	}
+	m.overlay = confirmOverlay(
+		"Leave without saving? The draft is not written anywhere.",
+		func(mm *model) tea.Cmd { return mm.quit() },
+	)
+	return nil
 }
 
 // quit stops every running preview and leaves.
@@ -313,7 +335,7 @@ func (m *model) applyDraft(name string) tea.Cmd {
 		m.setStatus(levelBad, "applying is not available in this context")
 		return nil
 	}
-	if _, err := m.sess.SaveTheme(name); err != nil {
+	if _, err := m.sess.Save(name); err != nil {
 		m.setStatus(levelBad, "%v", err)
 		return nil
 	}
@@ -350,7 +372,7 @@ func (m *model) View() string {
 }
 
 func (m *model) viewHeader() string {
-	name := m.sess.Base.Name
+	name := m.sess.Base.Theme.Name
 	if name == "" {
 		name = "untitled"
 	}
@@ -402,7 +424,8 @@ func (m *model) helpLine() string {
 		return "tab pane · ↑↓ move · enter edit · ←→ nudge · r reset · c clear · R reset all · " +
 			"g programs · t themes · y copy theme · s save · a apply · q back"
 	case screenPrograms:
-		return "↑↓ move · p preview · y copy · esc back · q back"
+		return "tab pane · ↑↓ move · enter edit · ←→ change · r reset · " +
+			"p preview · y copy · x stop · s save · esc back"
 	}
 	return ""
 }

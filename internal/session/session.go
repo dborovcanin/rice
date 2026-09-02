@@ -39,6 +39,10 @@ type Options struct {
 	// ThemesDir is where a saved draft is written, normally
 	// ~/.config/rice/themes.
 	ThemesDir string
+	// WriteConfig persists an edited configuration. It is injected because
+	// config.toml belongs to the command layer, which owns its formatting and
+	// its header. A nil writer makes per-program settings read-only.
+	WriteConfig func(config.Config) error
 	// Version is stamped into rendered files, matching a real generation.
 	Version string
 	// SandboxRoot is where preview renders go. Empty means a directory under
@@ -46,26 +50,26 @@ type Options struct {
 	SandboxRoot string
 }
 
-// Session is a draft theme and everything needed to act on it.
+// Session is a draft and everything needed to act on it.
 //
-// Base and Draft are held in source form, exactly as a theme file is written:
-// a field left unset is derived from others by normalization. Keeping that
-// distinction is what lets an edit to a semantic color still reach everything
-// derived from it. Resolved is the normalized form, and is what renders.
+// The theme inside Base and Draft is held in source form, exactly as a theme
+// file is written: a field left unset is derived from others by normalization.
+// Keeping that distinction is what lets an edit to a semantic color still
+// reach everything derived from it. Resolved is the normalized form, and is
+// what renders.
 type Session struct {
-	// Base is the theme the draft started from, in source form.
-	Base theme.Theme
-	// Draft is the working copy, in source form.
-	Draft theme.Theme
-	// Config is the structural configuration the draft renders against. The
-	// session does not edit it; structure stays in config.toml.
-	Config config.Config
+	// Base is what the draft started from: the theme as loaded, and the
+	// configuration as it is on disk.
+	Base Draft
+	// Draft is the working copy.
+	Draft Draft
 
-	themes    *theme.Store
-	registry  *adapter.Registry
-	builder   *generation.Builder
-	runner    command.Runner
-	themesDir string
+	themes      *theme.Store
+	registry    *adapter.Registry
+	builder     *generation.Builder
+	runner      command.Runner
+	themesDir   string
+	writeConfig func(config.Config) error
 
 	sandboxRoot string
 	previews    []*Preview
@@ -73,7 +77,7 @@ type Session struct {
 	// resolved is Draft after normalization. It is recomputed on every change
 	// rather than on every read, because an interface reads it constantly and
 	// changes it rarely.
-	resolved theme.Theme
+	resolved Draft
 
 	// previews caches other themes resolved for display, so a picker that
 	// draws a palette for every row does not re-read and re-parse the theme
@@ -101,25 +105,36 @@ func New(base theme.Theme, opts Options) (*Session, error) {
 	}
 
 	s := &Session{
-		Config:      opts.Config,
 		themes:      opts.Themes,
 		registry:    opts.Registry,
 		builder:     generation.NewBuilder(opts.Engine, opts.Registry, opts.Version),
 		runner:      opts.Runner,
 		themesDir:   opts.ThemesDir,
+		writeConfig: opts.WriteConfig,
 		sandboxRoot: root,
 	}
+	s.Base.Config = opts.Config
 	s.SetBase(base)
 	return s, nil
 }
+
+// Config is the configuration the draft renders against.
+func (s *Session) Config() config.Config { return s.Draft.Config }
 
 // SetBase replaces the base theme and discards the draft. Choosing a different
 // theme in the picker starts over rather than carrying edits across, because
 // an override that made sense against one palette rarely makes sense against
 // another.
+// The configuration is carried across: it is not part of the theme, and
+// choosing a different palette is no reason to forget a bar height.
 func (s *Session) SetBase(base theme.Theme) {
-	s.Base = cloneTheme(base)
-	s.Draft = cloneTheme(base)
+	cfg := s.Draft.Config
+	if cfg.Components == (config.Components{}) {
+		cfg = s.Base.Config
+	}
+
+	s.Base = Draft{Theme: cloneTheme(base), Config: s.Base.Config}
+	s.Draft = Draft{Theme: cloneTheme(base), Config: cfg}
 	s.refresh()
 
 	// A saved theme changes what its name resolves to, so the cache cannot
@@ -139,10 +154,18 @@ func (s *Session) LoadBase(name string) error {
 
 // Resolved is the draft after normalization: every derived value filled in,
 // and what every render, preview and export uses.
-func (s *Session) Resolved() theme.Theme { return s.resolved }
+func (s *Session) Resolved() Draft { return s.resolved }
 
-// refresh recomputes the resolved theme after the draft changes.
-func (s *Session) refresh() { s.resolved = s.Draft.Resolved() }
+// Theme is the resolved theme, which is what renders.
+func (s *Session) Theme() theme.Theme { return s.resolved.Theme }
+
+// refresh recomputes the resolved draft after a change.
+func (s *Session) refresh() {
+	s.resolved = Draft{
+		Theme:  s.Draft.Theme.Resolved(),
+		Config: s.Draft.Config,
+	}
+}
 
 // Themes lists the themes available to start from.
 func (s *Session) Themes() ([]theme.Entry, error) { return s.themes.List() }
@@ -165,7 +188,7 @@ func (s *Session) ThemePreview(name string) (theme.Theme, error) {
 }
 
 // Components are the enabled component names, in registry order.
-func (s *Session) Components() []string { return s.Config.Components.Names() }
+func (s *Session) Components() []string { return s.Draft.Config.Components.Names() }
 
 // Set writes a raw value into the draft. The draft is unchanged when the value
 // does not parse.
@@ -253,7 +276,7 @@ func (s *Session) Explicit(key string) bool {
 
 // ResetAll discards every override.
 func (s *Session) ResetAll() {
-	s.Draft = cloneTheme(s.Base)
+	s.Draft = cloneDraft(s.Base)
 	s.refresh()
 }
 
@@ -266,7 +289,9 @@ func (s *Session) Overridden(key string) bool {
 	return !f.Same(s.Draft, s.Base)
 }
 
-// Overrides lists the keys that differ from the base theme, in field order.
+// Overrides lists the theme keys that differ from the base theme, in field
+// order. Program settings are not included: they are tracked separately,
+// because they are saved to a different file.
 func (s *Session) Overrides() []string {
 	var keys []string
 	for _, f := range Fields() {
@@ -277,12 +302,20 @@ func (s *Session) Overrides() []string {
 	return keys
 }
 
-// Dirty reports whether the draft differs from the base theme at all.
-func (s *Session) Dirty() bool { return len(s.Overrides()) > 0 }
+// ThemeDirty reports whether the theme differs from the base theme.
+func (s *Session) ThemeDirty() bool { return len(s.Overrides()) > 0 }
+
+// Dirty reports whether anything at all is unsaved.
+func (s *Session) Dirty() bool { return s.ThemeDirty() || s.ConfigDirty() }
 
 // Validate reports whether the draft is renderable, using the same validation
-// a theme file goes through.
-func (s *Session) Validate() error { return s.resolved.Validate() }
+// a theme file and a configuration file go through.
+func (s *Session) Validate() error {
+	if err := s.resolved.Theme.Validate(); err != nil {
+		return err
+	}
+	return s.resolved.Config.Validate()
+}
 
 // SaveTheme writes the draft to the user theme directory and returns the path.
 // A user theme shadows a bundled theme of the same name, which is the existing
@@ -296,7 +329,7 @@ func (s *Session) SaveTheme(name string) (string, error) {
 		return "", errors.New("no theme directory configured")
 	}
 
-	out := cloneTheme(s.Draft)
+	out := cloneTheme(s.Draft.Theme)
 	out.Name = name
 	if err := out.Resolved().Validate(); err != nil {
 		return "", err
@@ -321,6 +354,59 @@ func (s *Session) SaveTheme(name string) (string, error) {
 	// against what was saved.
 	s.SetBase(out)
 	return path, nil
+}
+
+// SaveConfig writes the edited configuration back to config.toml. It is a
+// no-op when nothing changed, so saving a theme after touching no program
+// setting does not rewrite the file.
+func (s *Session) SaveConfig() error {
+	if !s.ConfigDirty() {
+		return nil
+	}
+	if s.writeConfig == nil {
+		return errors.New("per-program settings are read-only in this context")
+	}
+
+	cfg := s.Draft.Config
+	cfg.Normalize()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if err := s.writeConfig(cfg); err != nil {
+		return err
+	}
+
+	s.Draft.Config = cfg
+	s.Base.Config = cfg
+	s.refresh()
+	return nil
+}
+
+// Save writes everything the session has changed: the theme under name, and
+// the configuration when a program setting was edited.
+func (s *Session) Save(name string) (string, error) {
+	path, err := s.SaveTheme(name)
+	if err != nil {
+		return "", err
+	}
+	return path, s.SaveConfig()
+}
+
+// SetConfigWriter replaces where an edited configuration is written. It exists
+// so a caller that builds a session before it knows how to persist — and a
+// test — can supply the writer afterwards.
+func (s *Session) SetConfigWriter(write func(config.Config) error) { s.writeConfig = write }
+
+// ConfigDirty reports whether any per-program setting differs from the file.
+func (s *Session) ConfigDirty() bool {
+	for _, component := range s.Components() {
+		for _, f := range ProgramFields(component) {
+			if !f.Same(s.Draft, s.Base) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ValidThemeName rejects names that would escape the theme directory or
@@ -363,4 +449,12 @@ func (s *Session) Close() error {
 func cloneTheme(t theme.Theme) theme.Theme {
 	t.Icons.Paths = slices.Clone(t.Icons.Paths)
 	return t
+}
+
+// cloneDraft copies a draft. The configuration's slices and maps are shared:
+// the editable program settings are all scalars, and the parts that are not —
+// outputs, bindings, window rules — are not editable here.
+func cloneDraft(d Draft) Draft {
+	d.Theme = cloneTheme(d.Theme)
+	return d
 }

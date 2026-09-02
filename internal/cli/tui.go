@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/dborovcanin/rice/internal/config"
 	"github.com/dborovcanin/rice/internal/session"
 	"github.com/dborovcanin/rice/internal/tui"
 )
@@ -63,6 +64,9 @@ func runTUI(cmd *cobra.Command, a *App, themeName string) error {
 		Config:    cfg,
 		ThemesDir: a.Paths.ThemesDir,
 		Version:   a.Builder.Version,
+		// Per-program settings live in config.toml, whose format and header
+		// belong to the command layer, so the editor is handed a writer.
+		WriteConfig: func(cfg config.Config) error { return writeConfig(a, cfg) },
 	})
 	if err != nil {
 		return err
@@ -90,6 +94,8 @@ func applyFromEditor(cmd *cobra.Command, a *App) func(string) error {
 			return err
 		}
 
+		// Reload rather than reusing the copy the session started with: the
+		// editor may have written per-program settings in the meantime.
 		cfg, err := a.Config()
 		if err != nil {
 			return err

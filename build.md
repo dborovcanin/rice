@@ -2335,11 +2335,34 @@ function, so `internal/tui` never reaches generations, deployment or reload.
 
 * [x] Program list derived from the adapter registry.
 * [x] Preview and copy from inside a program screen.
-* [ ] Per-program overrides on the same session layer.
+* [x] Per-program settings on the same session layer.
 
-Overrides are the remaining piece. They need a place to live: `config.toml`
-holds per-program structure today, and the session deliberately does not edit
-it. Deciding that is the first task of the next phase of editor work.
+**Decision: per-program settings stay in `config.toml`.** They are structure,
+not appearance — a bar's height and a launcher's width are decisions about the
+desktop, and they should survive a change of palette. The alternative, a
+per-program block inside the theme, would have made every theme carry someone
+else's layout.
+
+That means a draft is two things, so `session.Draft` now holds both:
+
+```go
+type Draft struct {
+    Theme  theme.Theme
+    Config config.Config
+}
+```
+
+Fields address a `Draft` rather than a theme, so a palette color and a bar
+height are the same kind of thing to an interface, while saving still sends
+appearance to a theme file and structure to `config.toml`. Writing
+`config.toml` is injected from the command layer, which owns its formatting,
+and only happens when a program setting actually changed.
+
+The tables are curated, not exhaustive: scalars only. Outputs, workspaces,
+bindings, window rules and Waybar's module map are lists, and editing a list
+well needs an interface of its own. Until that exists they stay in the file,
+where they are already comfortable to edit by hand — that is the next piece of
+editor work, if it turns out to be wanted.
 
 Acceptance:
 

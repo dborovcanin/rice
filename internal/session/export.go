@@ -16,7 +16,7 @@ func (s *Session) ComponentFiles(component string) ([]generation.Rendered, error
 	if _, err := s.registry.Get(component); err != nil {
 		return nil, err
 	}
-	if !s.Config.Components.Enabled(component) {
+	if !s.Draft.Config.Components.Enabled(component) {
 		return nil, fmt.Errorf("%s is not enabled in config.toml", component)
 	}
 
@@ -66,7 +66,7 @@ func (s *Session) ComponentText(component string) (string, error) {
 // ThemeText renders the draft as a theme file, for someone who wants the
 // palette rather than a generated configuration.
 func (s *Session) ThemeText() (string, error) {
-	data, err := toml.Marshal(cloneTheme(s.Draft))
+	data, err := toml.Marshal(cloneTheme(s.Draft.Theme))
 	if err != nil {
 		return "", fmt.Errorf("encode theme: %w", err)
 	}

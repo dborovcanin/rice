@@ -5,25 +5,112 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/dborovcanin/rice/internal/session"
 )
+
+// programFields are the settings of the program under the cursor. They come
+// from config.toml rather than the theme, because a bar's height and a
+// launcher's width are structure, not appearance, and should survive a change
+// of palette.
+func (m *model) programFields() []session.Field {
+	name, ok := m.selected()
+	if !ok {
+		return nil
+	}
+	return session.ProgramFields(name)
+}
+
+func (m *model) programFieldCursor() int {
+	name, _ := m.selected()
+	return m.programCursors[name]
+}
+
+func (m *model) setProgramFieldCursor(i int) {
+	name, ok := m.selected()
+	if !ok {
+		return
+	}
+	m.programCursors[name] = clampIndex(i, len(m.programFields()))
+}
+
+// programField is the setting under the cursor.
+func (m *model) programField() (session.Field, bool) {
+	fields := m.programFields()
+	if len(fields) == 0 {
+		return session.Field{}, false
+	}
+	return fields[clampIndex(m.programFieldCursor(), len(fields))], true
+}
 
 func (m *model) updatePrograms(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
+	case "tab", "shift+tab":
+		if m.programPane == paneGroups && len(m.programFields()) > 0 {
+			m.programPane = paneFields
+		} else {
+			m.programPane = paneGroups
+		}
+		return m, nil
+
 	case "up", "k":
-		m.programCursor = clampIndex(m.programCursor-1, len(m.programs))
+		if m.programPane == paneGroups {
+			m.programCursor = clampIndex(m.programCursor-1, len(m.programs))
+		} else {
+			m.setProgramFieldCursor(m.programFieldCursor() - 1)
+		}
+		return m, nil
 	case "down", "j":
-		m.programCursor = clampIndex(m.programCursor+1, len(m.programs))
+		if m.programPane == paneGroups {
+			m.programCursor = clampIndex(m.programCursor+1, len(m.programs))
+		} else {
+			m.setProgramFieldCursor(m.programFieldCursor() + 1)
+		}
+		return m, nil
+
+	case "left", "h":
+		if m.programPane == paneFields {
+			return m, m.nudgeProgram(-1)
+		}
+		return m, nil
+	case "right", "l":
+		if m.programPane == paneFields {
+			return m, m.nudgeProgram(1)
+		}
+		return m, nil
+
+	case "enter":
+		if m.programPane == paneGroups {
+			if len(m.programFields()) > 0 {
+				m.programPane = paneFields
+			}
+			return m, nil
+		}
+		return m.editProgramField()
+
+	case "r":
+		return m, m.withProgramField(func(f session.Field) {
+			if err := m.sess.Reset(f.Key); err != nil {
+				m.setStatus(levelBad, "%v", err)
+				return
+			}
+			value, _ := m.sess.Get(f.Key)
+			m.setStatus(levelInfo, "%s reset to %s", f.Key, value)
+		})
 
 	case "esc", "q", "g":
 		m.screen = screenEditor
 		return m, nil
 
-	case "p", "enter":
-		return m, m.previewSelected()
+	case "s":
+		m.overlay = saveOverlay(m.suggestedName(), false)
+		return m, nil
 
+	case "p":
+		return m, m.previewSelected()
 	case "y":
 		return m, m.copySelected()
-
 	case "x":
 		return m, m.stopSelected()
 	}
@@ -36,6 +123,44 @@ func (m *model) selected() (string, bool) {
 		return "", false
 	}
 	return m.programs[clampIndex(m.programCursor, len(m.programs))], true
+}
+
+func (m *model) withProgramField(fn func(session.Field)) tea.Cmd {
+	f, ok := m.programField()
+	if !ok || m.programPane != paneFields {
+		m.setStatus(levelInfo, "select a setting first")
+		return nil
+	}
+	fn(f)
+	return nil
+}
+
+func (m *model) nudgeProgram(steps int) tea.Cmd {
+	return m.withProgramField(func(f session.Field) {
+		if err := m.sess.Nudge(f.Key, steps); err != nil {
+			m.setStatus(levelInfo, "%v", err)
+			return
+		}
+		value, _ := m.sess.Get(f.Key)
+		m.setStatus(levelInfo, "%s = %s", f.Key, value)
+	})
+}
+
+func (m *model) editProgramField() (tea.Model, tea.Cmd) {
+	f, ok := m.programField()
+	if !ok {
+		return m, nil
+	}
+
+	// A switch and a fixed set of choices are faster to cycle than to type.
+	switch f.Kind {
+	case session.KindBool, session.KindChoice:
+		return m, m.nudgeProgram(1)
+	}
+
+	current, _ := m.sess.Get(f.Key)
+	m.overlay = textOverlay(f, current)
+	return m, nil
 }
 
 func (m *model) previewSelected() tea.Cmd {
@@ -104,44 +229,107 @@ func (m *model) viewPrograms() string {
 		}
 	}
 
-	var b strings.Builder
-	b.WriteString(m.styles.title.Render("Programs") + "\n")
-	b.WriteString(m.styles.subtle.Render(
-		"Preview renders the draft into a private directory and runs the real program against it. "+
-			"Nothing under ~/.config is touched.") + "\n\n")
-
+	var left strings.Builder
 	for i, name := range m.programs {
+		row := pad(name, nameWidth)
+		if m.running[name] != nil {
+			row = pad(name+" ●", nameWidth+2)
+		}
+		switch {
+		case i == m.programCursor && m.programPane == paneGroups:
+			row = m.styles.rowActive.Render(row)
+		case i == m.programCursor:
+			row = m.styles.rowCursor.Render(row)
+		default:
+			row = m.styles.row.Render(row)
+		}
+		left.WriteString(row + "\n")
+	}
+
+	listPane := m.styles.paneOff
+	fieldPane := m.styles.paneOff
+	if m.programPane == paneGroups {
+		listPane = m.styles.paneOn
+	} else {
+		fieldPane = m.styles.paneOn
+	}
+
+	width := m.width - nameWidth - 10
+	if width < 24 {
+		width = 24
+	}
+
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		listPane.Render(strings.TrimRight(left.String(), "\n")),
+		fieldPane.Render(m.viewProgramDetail(width)),
+	)
+}
+
+func (m *model) viewProgramDetail(width int) string {
+	name, ok := m.selected()
+	if !ok {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString(m.styles.title.Render(name) + "\n")
+	b.WriteString(truncate(m.previewLine(name), width) + "\n\n")
+
+	fields := session.ProgramFields(name)
+	if len(fields) == 0 {
+		b.WriteString(m.styles.subtle.Render("No settings for this program yet."))
+		return b.String()
+	}
+
+	labelWidth := 0
+	for _, f := range fields {
+		if n := len(f.Label); n > labelWidth {
+			labelWidth = n
+		}
+	}
+
+	cursor := m.programFieldCursor()
+	visible, offset := m.windowWith(len(fields), cursor, 10)
+	for i := offset; i < offset+visible; i++ {
+		f := fields[i]
+		value, _ := m.sess.Get(f.Key)
+		if value == "" {
+			value = "—"
+		}
+
+		row := pad(f.Label, labelWidth+2) + pad(value, 18)
+		if m.sess.Overridden(f.Key) {
+			row += m.styles.changed.Render("changed ")
+		}
+		row = pad(row, labelWidth+2+18+9) + m.styles.subtle.Render(f.Help)
+
 		prefix := "  "
-		if i == m.programCursor {
+		if i == cursor {
 			prefix = m.styles.rowCursor.Render("▸ ")
 		}
-
-		row := pad(name, nameWidth+2)
-
-		var note string
-		var style = m.styles.subtle
-		switch {
-		case m.running[name] != nil:
-			note, style = "running · x to stop", m.styles.ok
-		default:
-			l, err := m.sess.LaunchFor(name)
-			switch {
-			case err != nil:
-				note, style = err.Error(), m.styles.warn
-			case l.Confirm != "":
-				note, style = "asks first: "+l.Confirm, m.styles.warn
-			case l.Note != "":
-				note = l.Note
-			default:
-				note = l.Binary + " " + strings.Join(l.Args("<sandbox>"), " ")
-			}
+		if i == cursor && m.programPane == paneFields {
+			row = m.styles.rowActive.Render(pad(row, width-2))
 		}
-
-		line := prefix + row + style.Render(note)
-		if i == m.programCursor {
-			line = prefix + m.styles.rowActive.Render(pad(row, nameWidth+2)) + " " + style.Render(note)
-		}
-		b.WriteString(truncate(line, m.width) + "\n")
+		b.WriteString(truncate(prefix+row, width) + "\n")
 	}
-	return b.String()
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// previewLine says what previewing this program would do, or why it cannot.
+func (m *model) previewLine(name string) string {
+	if m.running[name] != nil {
+		return m.styles.ok.Render("previewing · x stops it")
+	}
+
+	l, err := m.sess.LaunchFor(name)
+	switch {
+	case err != nil:
+		return m.styles.warn.Render(err.Error())
+	case l.Confirm != "":
+		return m.styles.warn.Render("p asks first: " + l.Confirm)
+	case l.Note != "":
+		return m.styles.warn.Render("p previews · " + l.Note)
+	default:
+		return m.styles.subtle.Render("p previews · " + l.Binary + " " + strings.Join(l.Args("<sandbox>"), " "))
+	}
 }

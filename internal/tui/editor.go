@@ -96,7 +96,7 @@ func (m *model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return
 			}
 			m.restyle()
-			m.setStatus(levelInfo, "%s reset to %s", f.Key, m.sess.Base.Name)
+			m.setStatus(levelInfo, "%s reset to %s", f.Key, m.sess.Base.Theme.Name)
 		})
 
 	case "c":
@@ -199,7 +199,7 @@ func (m *model) copyTheme() tea.Cmd {
 // the user already owns, and a "-custom" variant for a bundled one, so saving
 // a bundled theme does not silently shadow it unless that is asked for.
 func (m *model) suggestedName() string {
-	name := m.sess.Base.Name
+	name := m.sess.Base.Theme.Name
 	if name == "" {
 		return "my-theme"
 	}
@@ -319,7 +319,7 @@ func (m *model) viewFieldDetail(width int) string {
 		return ""
 	}
 
-	resolved := m.sess.Resolved()
+	resolved := m.sess.Theme()
 	bg := resolved.Colors.Background
 	fg := resolved.Colors.Foreground
 

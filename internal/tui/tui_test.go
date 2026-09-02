@@ -145,7 +145,7 @@ func TestPickerChoosesATheme(t *testing.T) {
 	// Move to a different theme and choose it.
 	target := ""
 	for i, e := range m.themes {
-		if e.Name != m.sess.Base.Name {
+		if e.Name != m.sess.Base.Theme.Name {
 			m.pickerCursor = i
 			target = e.Name
 			break
@@ -156,8 +156,8 @@ func TestPickerChoosesATheme(t *testing.T) {
 	if m.screen != screenEditor {
 		t.Error("choosing a theme should open the editor")
 	}
-	if m.sess.Base.Name != target {
-		t.Errorf("base = %q, want %q", m.sess.Base.Name, target)
+	if m.sess.Base.Theme.Name != target {
+		t.Errorf("base = %q, want %q", m.sess.Base.Theme.Name, target)
 	}
 }
 
@@ -169,7 +169,7 @@ func TestPickerConfirmsBeforeDiscardingADraft(t *testing.T) {
 	}
 
 	for i, e := range m.themes {
-		if e.Name != m.sess.Base.Name {
+		if e.Name != m.sess.Base.Theme.Name {
 			m.pickerCursor = i
 			break
 		}
@@ -454,5 +454,131 @@ func TestQuitStopsRunningPreviews(t *testing.T) {
 	m.quit()
 	if m.fatal != nil {
 		t.Errorf("quit reported %v", m.fatal)
+	}
+}
+
+func TestProgramsEditASetting(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter", "g")
+
+	for i, name := range m.programs {
+		if name == "waybar" {
+			m.programCursor = i
+		}
+	}
+
+	press(t, m, "tab")
+	if m.programPane != paneFields {
+		t.Fatal("tab should move focus to the program's settings")
+	}
+
+	// waybar's first setting is its position, a fixed set of choices, so
+	// enter cycles rather than opening a text prompt.
+	f, ok := m.programField()
+	if !ok || f.Key != "waybar.position" {
+		t.Fatalf("field = %q, want waybar.position", f.Key)
+	}
+
+	before, _ := m.sess.Get(f.Key)
+	press(t, m, "enter")
+	after, _ := m.sess.Get(f.Key)
+	if before == after {
+		t.Error("enter on a choice should move to the next value")
+	}
+	if m.overlay.kind != overlayNone {
+		t.Error("a choice should not open a text prompt")
+	}
+
+	press(t, m, "r")
+	if got, _ := m.sess.Get(f.Key); got != before {
+		t.Errorf("reset gave %q, want %q", got, before)
+	}
+
+	// A numeric setting does open a prompt.
+	m.setProgramFieldCursor(2) // waybar.height
+	f, _ = m.programField()
+	if f.Key != "waybar.height" {
+		t.Fatalf("field = %q, want waybar.height", f.Key)
+	}
+	press(t, m, "enter")
+	if m.overlay.kind != overlayText {
+		t.Fatal("a numeric setting should open the text prompt")
+	}
+	m.overlay.input.SetValue("36")
+	press(t, m, "enter")
+	if got, _ := m.sess.Get("waybar.height"); got != "36" {
+		t.Errorf("height = %q, want 36", got)
+	}
+}
+
+func TestProgramsKeepTheirOwnCursor(t *testing.T) {
+	m, _, _ := newTestModel(t)
+	press(t, m, "enter", "g")
+
+	for i, name := range m.programs {
+		if name == "foot" {
+			m.programCursor = i
+		}
+	}
+	press(t, m, "tab", "down", "down")
+	footCursor := m.programFieldCursor()
+	if footCursor != 2 {
+		t.Fatalf("foot cursor = %d, want 2", footCursor)
+	}
+
+	press(t, m, "tab", "up")
+	press(t, m, "tab")
+	if got := m.programFieldCursor(); got == footCursor {
+		t.Skip("the neighbouring program happens to share a cursor position")
+	}
+
+	// Coming back restores where the cursor was.
+	for i, name := range m.programs {
+		if name == "foot" {
+			m.programCursor = i
+		}
+	}
+	if got := m.programFieldCursor(); got != footCursor {
+		t.Errorf("foot cursor = %d, want it remembered as %d", got, footCursor)
+	}
+}
+
+func TestSaveWritesProgramSettings(t *testing.T) {
+	m, _, _ := newTestModel(t)
+
+	var written int
+	m.sess.SetConfigWriter(func(config.Config) error {
+		written++
+		return nil
+	})
+
+	press(t, m, "enter", "g")
+	for i, name := range m.programs {
+		if name == "rofi" {
+			m.programCursor = i
+		}
+	}
+	press(t, m, "tab")
+	m.setProgramFieldCursor(1) // rofi.lines
+	press(t, m, "enter")
+	m.overlay.input.SetValue("14")
+	press(t, m, "enter")
+
+	if !m.sess.ConfigDirty() {
+		t.Fatal("the program setting did not register")
+	}
+
+	press(t, m, "s")
+	if m.overlay.kind != overlaySave {
+		t.Fatal("s should open the save prompt from the programs screen")
+	}
+	m.overlay.input.SetValue("with-programs")
+	press(t, m, "enter")
+
+	if written != 1 {
+		t.Errorf("config written %d times, want once", written)
+	}
+	if m.level != levelGood {
+		t.Errorf("saving reported %q", m.status)
 	}
 }

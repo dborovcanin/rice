@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/dborovcanin/rice/internal/session"
 	"github.com/dborovcanin/rice/internal/theme"
 )
 
@@ -37,7 +38,7 @@ func (m *model) updatePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		name := m.themes[m.pickerCursor].Name
-		if m.sess.Dirty() && name != m.sess.Base.Name {
+		if m.sess.Dirty() && name != m.sess.Base.Theme.Name {
 			// Choosing a base discards the draft, so say so before doing it.
 			m.overlay = confirmOverlay(
 				"Discard unsaved changes and start from "+name+"?",
@@ -116,7 +117,7 @@ func themeSwatches(th theme.Theme) string {
 		if !ok {
 			continue
 		}
-		if c, isColor := f.Color(th); isColor {
+		if c, isColor := f.Color(session.Draft{Theme: th}); isColor {
 			b.WriteString(swatch(c))
 		}
 	}
@@ -124,10 +125,14 @@ func themeSwatches(th theme.Theme) string {
 }
 
 // window returns how many rows fit and where the list should start so the
-// cursor stays visible.
+// cursor stays visible. The reserve is what the surrounding chrome takes:
+// header, pane borders, status and help.
 func (m *model) window(total, cursor int) (visible, offset int) {
-	// Header, blank line, status and help take the rest.
-	visible = m.height - 6
+	return m.windowWith(total, cursor, 8)
+}
+
+func (m *model) windowWith(total, cursor, reserve int) (visible, offset int) {
+	visible = m.height - reserve
 	if visible < 1 {
 		visible = 1
 	}

@@ -117,13 +117,42 @@ family can still be typed.
 
 ## Programs
 
-One row per enabled component, each saying how it previews.
+Programs on the left, that program's settings on the right. `tab` moves
+between them.
 
 | Key | Does |
 | --- | --- |
 | `p` | Preview: render the draft and run the real program against it |
 | `y` | Copy that program's generated configuration to the clipboard |
 | `x` | Stop a running preview |
+| `enter` | Edit the setting; a switch or a fixed choice cycles in place |
+| `←` `→` | Change the setting without opening a prompt |
+| `r` | Reset the setting to what is in `config.toml` |
+| `s` | Save |
+
+### What lives here, and where it is saved
+
+These settings are **structure**, so they live in `config.toml`, not in the
+theme: a bar's height and a launcher's width are decisions about the desktop,
+and they should survive a change of palette. Changing the theme in the picker
+therefore keeps them; saving writes them to `config.toml` while the palette
+goes to the theme file.
+
+`config.toml` is only rewritten when a program setting actually changed.
+
+The set is curated rather than exhaustive. Outputs, workspaces, bindings,
+window rules and Waybar's module options are lists, and editing a list well
+needs an interface of its own; until that exists they stay in `config.toml`,
+where they are already comfortable to edit by hand.
+
+| Program | Settings |
+| --- | --- |
+| `sway` | Modifier, wallpaper and mode, smart borders and gaps, focus follows mouse, titlebars |
+| `waybar` | Position, layer, height, spacing |
+| `rofi` | Width, lines, columns, icons and icon theme, drun label |
+| `foot` | Server mode, shell, TERM, scrollback, padding, cursor style and blink |
+| `dunst` | Origin, size, offset, gap, follow, the three timeouts, max icon size |
+| `swaylock` | Image and scaling, blur, indicator radius and thickness, failed attempts, clock |
 
 A preview renders the whole draft into a private directory under the system
 temporary directory, validates it exactly as a real build would, and launches
@@ -157,6 +186,8 @@ rather than shadowing it by accident.
 
 The saved file keeps derived values derived, so it reads like a theme someone
 wrote rather than a dump of every resolved value.
+
+Saving also writes any changed program settings to `config.toml`.
 
 `a` saves and then applies: it writes the theme name into `config.toml`, builds
 a generation, switches `current` to it, and repairs and reloads whatever is

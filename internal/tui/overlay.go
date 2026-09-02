@@ -228,7 +228,7 @@ func (m *model) commitSave() tea.Cmd {
 		return m.applyDraft(name)
 	}
 
-	path, err := m.sess.SaveTheme(name)
+	path, err := m.sess.Save(name)
 	if err != nil {
 		m.setStatus(levelBad, "%v", err)
 		return nil

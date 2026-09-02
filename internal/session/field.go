@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dborovcanin/rice/internal/config"
 	"github.com/dborovcanin/rice/internal/theme"
 )
 
@@ -43,6 +44,15 @@ func (g Group) String() string {
 	return "Unknown"
 }
 
+// Draft is everything an editing session can change: appearance in the theme,
+// structure in the configuration. Fields address it rather than a bare theme,
+// so a per-program setting and a palette color are the same kind of thing to
+// an interface.
+type Draft struct {
+	Theme  theme.Theme
+	Config config.Config
+}
+
 // Kind is what sort of value a field holds, which decides how it is parsed,
 // displayed and edited.
 type Kind int
@@ -59,6 +69,10 @@ const (
 	// KindFont is a font family, which an interface may offer to pick from
 	// the installed families rather than type.
 	KindFont
+	// KindBool is a switch.
+	KindBool
+	// KindChoice is a string from a fixed set.
+	KindChoice
 )
 
 // Field is one editable value in a theme. Access is through pointer accessors
@@ -75,42 +89,52 @@ type Field struct {
 	Kind Kind
 	// Mono marks a font field that should offer monospaced families first.
 	Mono bool
+	// Derives marks a field that normalization fills in when it is left
+	// unset, which is true of the theme and not of the configuration.
+	Derives bool
+	// Choices, when set, are the only accepted values.
+	Choices []string
+	// Help is a one-line explanation shown beside the field.
+	Help string
 	// Min and Max bound numeric fields. Max of zero means unbounded.
 	Min, Max float64
 	// Step is how far one nudge moves the value.
 	Step float64
 
-	color func(*theme.Theme) *theme.Color
-	num   func(*theme.Theme) *int
-	frac  func(*theme.Theme) *float64
-	text  func(*theme.Theme) *string
+	color func(*Draft) *theme.Color
+	num   func(*Draft) *int
+	frac  func(*Draft) *float64
+	text  func(*Draft) *string
+	flag  func(*Draft) *bool
 }
 
 // Display renders the field's current value the way it appears in a theme file.
-func (f Field) Display(t theme.Theme) string {
+func (f Field) Display(d Draft) string {
 	switch f.Kind {
 	case KindColor:
-		return f.color(&t).String()
+		return f.color(&d).String()
 	case KindInt:
-		return strconv.Itoa(*f.num(&t))
+		return strconv.Itoa(*f.num(&d))
 	case KindFloat:
-		return strconv.FormatFloat(*f.frac(&t), 'f', -1, 64)
+		return strconv.FormatFloat(*f.frac(&d), 'f', -1, 64)
+	case KindBool:
+		return strconv.FormatBool(*f.flag(&d))
 	default:
-		return *f.text(&t)
+		return *f.text(&d)
 	}
 }
 
 // Color returns the field's color, and false when the field is not a color.
-func (f Field) Color(t theme.Theme) (theme.Color, bool) {
+func (f Field) Color(d Draft) (theme.Color, bool) {
 	if f.Kind != KindColor {
 		return theme.Color{}, false
 	}
-	return *f.color(&t), true
+	return *f.color(&d), true
 }
 
 // Set parses raw and writes it into the theme. The theme is left untouched
 // when the value does not parse or falls outside the field's bounds.
-func (f Field) Set(t *theme.Theme, raw string) error {
+func (f Field) Set(d *Draft, raw string) error {
 	raw = strings.TrimSpace(raw)
 
 	switch f.Kind {
@@ -119,7 +143,7 @@ func (f Field) Set(t *theme.Theme, raw string) error {
 		if err != nil {
 			return err
 		}
-		*f.color(t) = c
+		*f.color(d) = c
 
 	case KindInt:
 		n, err := strconv.Atoi(raw)
@@ -129,7 +153,7 @@ func (f Field) Set(t *theme.Theme, raw string) error {
 		if err := f.checkBounds(float64(n)); err != nil {
 			return err
 		}
-		*f.num(t) = n
+		*f.num(d) = n
 
 	case KindFloat:
 		v, err := strconv.ParseFloat(raw, 64)
@@ -139,13 +163,23 @@ func (f Field) Set(t *theme.Theme, raw string) error {
 		if err := f.checkBounds(v); err != nil {
 			return err
 		}
-		*f.frac(t) = v
+		*f.frac(d) = v
+
+	case KindBool:
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			return fmt.Errorf("%s: %q is not true or false", f.Key, raw)
+		}
+		*f.flag(d) = v
 
 	default:
 		if raw == "" {
 			return fmt.Errorf("%s: value is empty", f.Key)
 		}
-		*f.text(t) = raw
+		if err := f.checkChoice(raw); err != nil {
+			return err
+		}
+		*f.text(d) = raw
 	}
 	return nil
 }
@@ -157,12 +191,20 @@ func (f Field) Set(t *theme.Theme, raw string) error {
 // The current value is read from resolved and written into src, so nudging a
 // value that was being derived materializes it at the value the user can
 // actually see rather than at zero.
-func (f Field) Nudge(src *theme.Theme, resolved theme.Theme, steps int) error {
+func (f Field) Nudge(src *Draft, resolved Draft, steps int) error {
 	if steps == 0 {
 		return nil
 	}
 
 	switch f.Kind {
+	case KindBool:
+		// Nudging a switch is the only sensible reading of "change it".
+		*f.flag(src) = !*f.flag(&resolved)
+		return nil
+
+	case KindChoice:
+		return f.cycle(src, resolved, steps)
+
 	case KindColor:
 		c := *f.color(&resolved)
 		amount := 0.05 * math.Abs(float64(steps))
@@ -201,7 +243,10 @@ func (f Field) Nudge(src *theme.Theme, resolved theme.Theme, steps int) error {
 // derived from.
 //
 // Zero means "unset" throughout the theme format, so that is what this checks.
-func (f Field) Explicit(src theme.Theme) bool {
+func (f Field) Explicit(src Draft) bool {
+	if !f.Derives {
+		return true
+	}
 	switch f.Kind {
 	case KindColor:
 		return !f.color(&src).IsZero()
@@ -209,13 +254,18 @@ func (f Field) Explicit(src theme.Theme) bool {
 		return *f.num(&src) != 0
 	case KindFloat:
 		return *f.frac(&src) != 0
+	case KindBool:
+		return true
 	default:
 		return *f.text(&src) != ""
 	}
 }
 
 // Clear removes an explicit value, handing the field back to normalization.
-func (f Field) Clear(src *theme.Theme) {
+func (f Field) Clear(src *Draft) {
+	if !f.Derives {
+		return
+	}
 	switch f.Kind {
 	case KindColor:
 		*f.color(src) = theme.Color{}
@@ -230,7 +280,7 @@ func (f Field) Clear(src *theme.Theme) {
 
 // Same reports whether the field holds the same value in two themes, which is
 // how the editor decides a value has been overridden.
-func (f Field) Same(a, b theme.Theme) bool {
+func (f Field) Same(a, b Draft) bool {
 	switch f.Kind {
 	case KindColor:
 		return *f.color(&a) == *f.color(&b)
@@ -238,13 +288,15 @@ func (f Field) Same(a, b theme.Theme) bool {
 		return *f.num(&a) == *f.num(&b)
 	case KindFloat:
 		return *f.frac(&a) == *f.frac(&b)
+	case KindBool:
+		return *f.flag(&a) == *f.flag(&b)
 	default:
 		return *f.text(&a) == *f.text(&b)
 	}
 }
 
 // CopyFrom writes the field's value from src into dst.
-func (f Field) CopyFrom(dst *theme.Theme, src theme.Theme) {
+func (f Field) CopyFrom(dst *Draft, src Draft) {
 	switch f.Kind {
 	case KindColor:
 		*f.color(dst) = *f.color(&src)
@@ -252,9 +304,46 @@ func (f Field) CopyFrom(dst *theme.Theme, src theme.Theme) {
 		*f.num(dst) = *f.num(&src)
 	case KindFloat:
 		*f.frac(dst) = *f.frac(&src)
+	case KindBool:
+		*f.flag(dst) = *f.flag(&src)
 	default:
 		*f.text(dst) = *f.text(&src)
 	}
+}
+
+// cycle moves a choice field to the next or previous accepted value.
+func (f Field) cycle(src *Draft, resolved Draft, steps int) error {
+	if len(f.Choices) == 0 {
+		return fmt.Errorf("%s: no choices", f.Key)
+	}
+
+	current := *f.text(&resolved)
+	at := 0
+	for i, c := range f.Choices {
+		if c == current {
+			at = i
+		}
+	}
+
+	next := (at + steps) % len(f.Choices)
+	if next < 0 {
+		next += len(f.Choices)
+	}
+	*f.text(src) = f.Choices[next]
+	return nil
+}
+
+// checkChoice rejects a value a field does not accept.
+func (f Field) checkChoice(raw string) error {
+	if len(f.Choices) == 0 {
+		return nil
+	}
+	for _, c := range f.Choices {
+		if c == raw {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s: %q is not one of %s", f.Key, raw, strings.Join(f.Choices, ", "))
 }
 
 func (f Field) checkBounds(v float64) error {
