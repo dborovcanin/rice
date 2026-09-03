@@ -457,6 +457,49 @@ func TestRofiFontAndIconSizeOverrideTheTheme(t *testing.T) {
 	}
 }
 
+// A notification is read from wherever you happen to be looking, so its font
+// overrides the theme's, and falls back to it when unset.
+func TestDunstFontOverridesTheTheme(t *testing.T) {
+	builder := newBuilder()
+	themes := theme.NewStore("", rice.Themes, "themes")
+	th, err := themes.Load("gruvbox-dark")
+	if err != nil {
+		t.Fatalf("load theme: %v", err)
+	}
+
+	render := func(t *testing.T, cfg config.Config) string {
+		t.Helper()
+		cfg.Normalize()
+		files, err := builder.Render(cfg, th, 1)
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		for _, f := range files {
+			if f.Path == "dunst/dunstrc" {
+				return string(f.Content)
+			}
+		}
+		t.Fatal("dunst produced no configuration")
+		return ""
+	}
+
+	// Unset, notifications follow the theme.
+	out := render(t, config.DefaultConfig())
+	if want := "font = " + th.Fonts.UIFamily + " " + strconv.Itoa(th.Fonts.UISize); !strings.Contains(out, want) {
+		t.Errorf("font should fall back to the theme's %q:\n%s", want, firstLines(out, 40))
+	}
+
+	// Set, it wins.
+	cfg := config.DefaultConfig()
+	cfg.Dunst.FontFamily = "Iosevka"
+	cfg.Dunst.FontSize = 18
+
+	out = render(t, cfg)
+	if !strings.Contains(out, "font = Iosevka 18") {
+		t.Errorf("the notification font override was ignored:\n%s", firstLines(out, 40))
+	}
+}
+
 func firstLines(s string, n int) string {
 	lines := strings.Split(s, "\n")
 	if len(lines) > n {

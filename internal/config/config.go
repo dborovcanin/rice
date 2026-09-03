@@ -289,7 +289,32 @@ type Dunst struct {
 	TimeoutNormal   int    `toml:"timeout_normal"`
 	TimeoutCritical int    `toml:"timeout_critical"`
 	MaxIconSize     int    `toml:"max_icon_size"`
-	Extra           string `toml:"extra"`
+
+	// FontFamily and FontSize override the theme's interface font for
+	// notifications alone. A notification is read from wherever you happen to
+	// be looking, in the time before it expires, so it is the other thing on
+	// the desktop that often wants to be larger than the interface around it.
+	// Zero or empty means the theme decides.
+	FontFamily string `toml:"font_family"`
+	FontSize   int    `toml:"font_size"`
+
+	Extra string `toml:"extra"`
+}
+
+// Font is the notification font family, falling back to the interface font.
+func (d Dunst) Font(family string) string {
+	if d.FontFamily != "" {
+		return d.FontFamily
+	}
+	return family
+}
+
+// Size is the notification font size, falling back to the interface size.
+func (d Dunst) Size(size int) int {
+	if d.FontSize != 0 {
+		return d.FontSize
+	}
+	return size
 }
 
 // GTK selects which toolkit files Rice writes. GTK has no global icon-size

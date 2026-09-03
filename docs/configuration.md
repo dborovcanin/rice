@@ -345,7 +345,21 @@ Font, palette and background opacity come from the theme.
 | `timeout_normal` | int | `5` |
 | `timeout_critical` | int | `0` (never expires) |
 | `max_icon_size` | int | `64` |
+| `font_family` | string | unset — falls back to the theme's interface font |
+| `font_size` | int | `0` — falls back to the theme's interface size |
 | `extra` | string | Appended verbatim to `dunstrc`. |
+
+A notification is read from wherever you happen to be looking, in the seconds
+before it expires, so it often wants to be larger than the interface around it:
+
+```toml
+[dunst]
+font_family = "JetBrainsMono Nerd Font"
+font_size = 14
+```
+
+Unset — empty or zero — means the theme decides, so a theme switch still moves
+notifications with everything else.
 
 ---
 

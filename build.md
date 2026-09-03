@@ -3266,5 +3266,3 @@ Uninstall restores the original configuration.
 The implementation is a small Go application using normal filesystem semantics, standard configuration formats, standard Wayland tools, and minimal dependencies.
 
 This should remain the core architectural model unless implementation experience demonstrates a concrete reason to change it.
-
-Also, add a unified border/border-color/border-radius setting that propagates from WM to apps (e.g. rofi).

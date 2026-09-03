@@ -33,7 +33,7 @@
     sort = yes
     idle_threshold = 120
 
-    font = {{ font .Fonts.UIFamily .Fonts.UISize }}
+    font = {{ font (.Dunst.Font .Fonts.UIFamily) (.Dunst.Size .Fonts.UISize) }}
     line_height = 0
     markup = full
     format = "<b>%s</b>\n%b"

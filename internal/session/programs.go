@@ -253,6 +253,17 @@ func dunstFields() []Field {
 			func(d *Draft) *int { return &d.Config.Dunst.TimeoutCritical }),
 		pInt("dunst.max_icon_size", "Max icon size", "pixels", 0, 256, 4,
 			func(d *Draft) *int { return &d.Config.Dunst.MaxIconSize }),
+		// Overrides of the theme's interface font, for notifications alone.
+		// Unset means "follow the theme", so the editor shows what the theme
+		// would give rather than a blank, and `c` puts it back.
+		override(pickFont(pText("dunst.font_family", "Font family",
+			"empty follows the theme's interface font",
+			func(d *Draft) *string { return &d.Config.Dunst.FontFamily })),
+			func(d Draft) string { return d.Theme.Fonts.UIFamily }),
+
+		override(pInt("dunst.font_size", "Font size", "0 follows the theme's interface size", 0, 96, 1,
+			func(d *Draft) *int { return &d.Config.Dunst.FontSize }),
+			func(d Draft) string { return strconv.Itoa(d.Theme.Fonts.UISize) }),
 	}
 }
 

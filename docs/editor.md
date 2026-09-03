@@ -248,7 +248,7 @@ The ANSI palette is under the terminal because that is what reads it. It is
 still part of the theme and saves to the theme file, so a second terminal
 emulator would show the same sixteen colours — there is one palette, not one
 per terminal.
-| `dunst` | Origin, size, offset, gap, follow, the three timeouts, max icon size |
+| `dunst` | Origin, size, offset, gap, follow, the three timeouts, max icon size, and overrides for font family and size |
 | `swaylock` | Image and scaling, blur, indicator radius and thickness, failed attempts, clock |
 | `gtk` | Whether to write `settings.ini` and the palette stylesheet |
 | `qt` | Whether to write qt5ct, qt6ct and Kvantum, and the platform theme |
