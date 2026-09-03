@@ -263,7 +263,7 @@ where they are already comfortable to edit by hand.
 | Program | Settings |
 | --- | --- |
 | `sway` | None — the compositor is in the global SwayFX section. Preview and copy still work |
-| `waybar` | Position, layer, height, spacing, and border overrides |
+| `waybar` | Design, position, layer, height, spacing, and border overrides |
 | `rofi` | Width, lines, columns, icons, drun label, and overrides for icon theme, font family and size, icon size and the border |
 | `foot` | **The 16 ANSI colours**, selection, cursor and URL, then server mode, shell, TERM, scrollback, padding, cursor style and blink, and overrides for font family and size |
 | `dunst` | Origin, size, offset, gap, follow, the three timeouts, max icon size, and overrides for font family and size and the border |

@@ -270,7 +270,77 @@ type Waybar struct {
 	// frame and the corners of its modules.
 	Border Border `toml:"border"`
 
+	// Design selects the stylesheet, and for a design that needs modules of
+	// its own, the layout with it. It decides the bar's shape: what a module
+	// sits on, what it is separated by, how round it is. Colours are never
+	// part of that choice — every design takes them from the theme, so
+	// switching a design keeps the palette and switching a theme keeps the
+	// shape.
+	Design string `toml:"design"`
+
 	ExtraCSS string `toml:"extra_css"`
+}
+
+// DefaultWaybarDesign is the bar Rice generates when nothing asks for another:
+// segments separated by powerline arrows, which needs a bar font that carries
+// the glyphs.
+const DefaultWaybarDesign = "powerline"
+
+// WaybarDesign is one of the bar's looks. A design is shape, never colour: it
+// is a stylesheet written against the theme, so it renders in whatever palette
+// is loaded.
+type WaybarDesign struct {
+	// Name is what config.toml selects it by, and the base name of its
+	// templates under templates/waybar/designs.
+	Name string
+	// Summary is one line describing the look, for an interface offering the
+	// choice.
+	Summary string
+	// Layout reports whether the design brings its own config.jsonc as well
+	// as its own stylesheet, which a look needs when it cannot be drawn with
+	// CSS alone — powerline arrows are modules, not shapes.
+	Layout bool
+}
+
+// waybarDesigns is the built-in set, in the order an interface should offer
+// them: the default first, then the quiet ones, then the loud ones.
+var waybarDesigns = []WaybarDesign{
+	{"powerline", "Flush segments separated by arrows; needs a Nerd Font on the bar", true},
+	{"pills", "Every module a rounded pill on a solid bar", false},
+	{"islands", "No bar at all: each group floats as its own rounded island", false},
+	{"capsule", "One long capsule, floating clear of the screen edge", false},
+	{"split", "The two ends carry everything and the middle is left alone", false},
+	{"solid", "One opaque strip, ruled between modules", false},
+	{"minimal", "No chrome: colour and spacing carry the bar", false},
+	{"compact", "As little bar as the modules need", false},
+	{"outline", "Outlined modules with the wallpaper showing through", false},
+	{"underline", "Flat, with a rule under whatever is worth looking at", false},
+	{"shadow", "Modules lifted off a translucent bar by their shadows", false},
+	{"mono", "One colour, until something needs attention", false},
+	{"retro", "Hard boxes and square corners, from before rounding", false},
+	{"neon", "Dark, with everything that matters glowing in its own colour", false},
+}
+
+// WaybarDesigns returns the built-in designs in presentation order.
+func WaybarDesigns() []WaybarDesign { return waybarDesigns }
+
+// WaybarDesignNames returns the design names in presentation order.
+func WaybarDesignNames() []string {
+	out := make([]string, 0, len(waybarDesigns))
+	for _, d := range waybarDesigns {
+		out = append(out, d.Name)
+	}
+	return out
+}
+
+// LookupWaybarDesign finds a design by name.
+func LookupWaybarDesign(name string) (WaybarDesign, bool) {
+	for _, d := range waybarDesigns {
+		if d.Name == name {
+			return d, true
+		}
+	}
+	return WaybarDesign{}, false
 }
 
 // Rofi describes launcher geometry. Colors come from the theme.

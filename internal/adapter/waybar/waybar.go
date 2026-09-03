@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/dborovcanin/rice/internal/adapter"
+	"github.com/dborovcanin/rice/internal/config"
 )
 
 type Adapter struct{}
@@ -17,12 +18,36 @@ func New() adapter.Adapter { return Adapter{} }
 
 func (Adapter) Name() string { return "waybar" }
 
-func (Adapter) Files() []adapter.File {
+// Files is the default design's files. Which design is generated is a
+// configuration question, so FilesFor is what the builder actually calls.
+func (a Adapter) Files() []adapter.File {
+	return a.FilesFor(config.Config{Waybar: config.Waybar{Design: config.DefaultWaybarDesign}})
+}
+
+// FilesFor picks the templates the chosen design is made of. Every design has
+// a stylesheet; one that cannot be drawn in CSS alone brings its own layout
+// too, because powerline arrows are modules rather than shapes.
+func (Adapter) FilesFor(cfg config.Config) []adapter.File {
+	design, ok := config.LookupWaybarDesign(cfg.Waybar.Design)
+	if !ok {
+		// Validation rejects an unknown design; rendering one anyway would
+		// fail on a missing template rather than say what is wrong.
+		design, _ = config.LookupWaybarDesign(config.DefaultWaybarDesign)
+	}
+
+	layout := "waybar/config.jsonc.tmpl"
+	if design.Layout {
+		layout = "waybar/designs/" + design.Name + ".jsonc.tmpl"
+	}
 	return []adapter.File{
-		{Template: "waybar/config.jsonc.tmpl", Path: "waybar/config.jsonc"},
-		{Template: "waybar/style.css.tmpl", Path: "waybar/style.css"},
+		{Template: layout, Path: "waybar/config.jsonc"},
+		{Template: "waybar/designs/" + design.Name + ".css.tmpl", Path: "waybar/style.css"},
 	}
 }
+
+// ConfigPathsFor is ConfigPaths: every design writes the same two files, only
+// from different templates.
+func (a Adapter) ConfigPathsFor(config.Config) []adapter.ManagedPath { return a.ConfigPaths() }
 
 func (Adapter) ConfigPaths() []adapter.ManagedPath {
 	return []adapter.ManagedPath{

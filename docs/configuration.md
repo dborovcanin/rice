@@ -310,6 +310,7 @@ colours either way: an urgent notification should not look like a quiet one.
 
 | Key | Type | Default |
 | --- | --- | --- |
+| `design` | string | `"powerline"` — the bar's shape; see below |
 | `position` | string | `"top"` |
 | `layer` | string | `"top"` |
 | `height` | int | `32` |
@@ -319,6 +320,51 @@ colours either way: an urgent notification should not look like a quiet one.
 | `modules_right` | list | `["pulseaudio", "cpu", "memory", "disk", "battery", "clock", "tray"]` |
 | `border.width`, `border.color`, `border.radius` | int, colour, int | unset — follow the desktop's border |
 | `extra_css` | string | unset — appended to `style.css` |
+
+### Designs
+
+A design is the bar's **shape**: what a module sits on, what separates it from
+the next one, how round it is. It is never its colour. Every design is a
+template written against the theme, so switching designs keeps the palette and
+switching themes keeps the shape.
+
+```toml
+[waybar]
+design = "islands"
+```
+
+| Design | Look |
+| --- | --- |
+| `powerline` | Flush segments separated by arrows. The default; needs a Nerd Font on the bar |
+| `pills` | Every module a rounded pill on a solid bar |
+| `islands` | No bar at all: each group floats as its own rounded island |
+| `capsule` | One long capsule, floating clear of the screen edge |
+| `split` | The two ends carry everything and the middle is left alone |
+| `solid` | One opaque strip, ruled between modules |
+| `minimal` | No chrome: colour and spacing carry the bar |
+| `compact` | As little bar as the modules need |
+| `outline` | Outlined modules with the wallpaper showing through |
+| `underline` | Flat, with a rule under whatever is worth looking at |
+| `shadow` | Modules lifted off a translucent bar by their shadows |
+| `mono` | One colour, until something needs attention |
+| `retro` | Hard boxes and square corners, from before rounding |
+| `neon` | Dark, with everything that matters glowing in its own colour |
+
+Most designs are a stylesheet and nothing else, so they work with whatever
+modules are configured. `powerline` is the exception: an arrow between two
+segments is a module rather than a shape — CSS cannot cut a corner off a Waybar
+module — so that design brings its own `config.jsonc` as well, wrapping the
+configured modules in arrows and forcing `spacing` to zero. The module lists,
+and everything under `[waybar.modules]`, are still yours.
+
+The other things the theme decides still apply on top: `ui.radius` rounds a
+design that rounds, `ui.opacity` sets how much of the wallpaper shows through,
+and `[waybar.border]` overrides the desktop's border for the bar alone.
+
+A design's template can be replaced the way any template can — put your own
+`templates/waybar/designs/islands.css.tmpl` in `~/.config/rice` and that design
+renders from your copy. The list of names is built in, so a new name needs a
+new entry in Rice rather than only a file.
 
 ### `[waybar.modules.<name>]`
 

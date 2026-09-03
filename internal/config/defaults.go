@@ -267,6 +267,7 @@ func defaultWaybar() Waybar {
 	return Waybar{
 		Position:      "top",
 		Layer:         "top",
+		Design:        DefaultWaybarDesign,
 		Height:        32,
 		Spacing:       4,
 		ModulesLeft:   []string{"sway/workspaces", "sway/mode"},

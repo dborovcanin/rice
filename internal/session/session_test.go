@@ -955,6 +955,47 @@ func TestRofiOverridesArePickable(t *testing.T) {
 	}
 }
 
+// The bar's design is a fixed choice, not a free string: a typo would render a
+// template that does not exist rather than say what is wrong.
+func TestWaybarDesignIsPickedFromTheBuiltInSet(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	var field session.Field
+	for _, f := range session.ProgramFields("waybar") {
+		if f.Key == "waybar.design" {
+			field = f
+		}
+	}
+	if field.Key == "" {
+		t.Fatal("waybar has no design setting")
+	}
+	if field.Kind != session.KindChoice {
+		t.Error("the design should be chosen from the built-in set")
+	}
+	if !slices.Equal(field.Choices, config.WaybarDesignNames()) {
+		t.Errorf("choices = %v, want every design", field.Choices)
+	}
+
+	if err := s.Set("waybar.design", "islands"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if s.Config().Waybar.Design != "islands" {
+		t.Errorf("design = %q, want islands", s.Config().Waybar.Design)
+	}
+	if err := s.Set("waybar.design", "nonesuch"); err == nil {
+		t.Error("a design that does not exist should be rejected")
+	}
+
+	// It reaches the rendered output: the design names itself in the header.
+	text, err := s.ComponentText("waybar")
+	if err != nil {
+		t.Fatalf("component text: %v", err)
+	}
+	if !strings.Contains(text, "islands") {
+		t.Error("the generated bar does not come from the chosen design")
+	}
+}
+
 // A border override exists only where it can do anything. The bar, the
 // launcher and notifications draw their own frame; a terminal's is drawn by
 // SwayFX, from the desktop's border, so a setting under the terminal would

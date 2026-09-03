@@ -5,10 +5,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -31,6 +33,10 @@ import (
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files")
+
+// hexColor finds a spelled-out colour. Waybar selectors start with "#" too,
+// but no module is named in hex.
+var hexColor = regexp.MustCompile(`(?i)#[0-9a-f]{3,8}\b`)
 
 // goldenThemes are rendered in full against testdata/golden. Together they
 // cover the derivation paths: an explicit ANSI palette, opacity below 1,
@@ -457,6 +463,137 @@ func TestRofiFontAndIconSizeOverrideTheTheme(t *testing.T) {
 	}
 }
 
+// Every design has to render, in every theme, and produce a bar configuration
+// Waybar can read. A design is shape only: none of them may name a colour that
+// did not come from the theme.
+func TestEveryWaybarDesignRendersInEveryTheme(t *testing.T) {
+	builder := newBuilder()
+	themes := theme.NewStore("", rice.Themes, "themes")
+	bar := waybar.New()
+
+	designs := config.WaybarDesigns()
+	if len(designs) < 10 {
+		t.Fatalf("only %d designs; the point of the set is that there is a choice", len(designs))
+	}
+
+	entries, err := themes.List()
+	if err != nil {
+		t.Fatalf("list themes: %v", err)
+	}
+
+	for _, design := range designs {
+		for _, entry := range entries {
+			t.Run(design.Name+"/"+entry.Name, func(t *testing.T) {
+				th, err := themes.Load(entry.Name)
+				if err != nil {
+					t.Fatalf("load theme: %v", err)
+				}
+
+				cfg := config.DefaultConfig()
+				cfg.Waybar.Design = design.Name
+				cfg.Normalize()
+				if err := cfg.Validate(); err != nil {
+					t.Fatalf("a bundled design should be a valid setting: %v", err)
+				}
+
+				files, err := builder.Render(cfg, th, 1)
+				if err != nil {
+					t.Fatalf("render: %v", err)
+				}
+
+				dir := t.TempDir()
+				style := ""
+				for _, f := range files {
+					out := filepath.Join(dir, filepath.FromSlash(f.Path))
+					if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(out, f.Content, 0o644); err != nil {
+						t.Fatal(err)
+					}
+					if f.Path == "waybar/style.css" {
+						style = string(f.Content)
+					}
+				}
+
+				// The bar configuration has to be readable as JSON, which is
+				// what Waybar will do with it.
+				if err := bar.Validate(dir); err != nil {
+					t.Errorf("%s: %v", design.Name, err)
+				}
+
+				if len(style) < 500 {
+					t.Errorf("%s: stylesheet is %d bytes, which is not a design", design.Name, len(style))
+				}
+				if strings.Contains(style, "{{") {
+					t.Errorf("%s: stylesheet still holds template syntax", design.Name)
+				}
+				// Colours come from the theme, so the only hex literals in a
+				// stylesheet are the ones the @define-color block was given.
+				for _, line := range strings.Split(style, "\n") {
+					trimmed := strings.TrimSpace(line)
+					if strings.HasPrefix(trimmed, "@define-color") {
+						continue
+					}
+					for _, hex := range hexColor.FindAllString(trimmed, -1) {
+						// `contrast` resolves to black or white, which is a
+						// reading of the theme's colour rather than a colour
+						// of the design's own.
+						if strings.EqualFold(hex, "#000000") || strings.EqualFold(hex, "#ffffff") {
+							continue
+						}
+						t.Errorf("%s: %q names a colour outside the theme block", design.Name, trimmed)
+					}
+				}
+			})
+		}
+	}
+}
+
+// The registry and the template directory are two halves of the same fact, and
+// a design in one and not the other is a template that never renders or a name
+// that fails to.
+func TestWaybarDesignsMatchTheirTemplates(t *testing.T) {
+	entries, err := fs.ReadDir(rice.Templates, "templates/waybar/designs")
+	if err != nil {
+		t.Fatalf("read designs: %v", err)
+	}
+
+	styles := map[string]bool{}
+	layouts := map[string]bool{}
+	for _, e := range entries {
+		switch name, ok := strings.CutSuffix(e.Name(), ".css.tmpl"); {
+		case ok:
+			styles[name] = true
+		default:
+			name, ok := strings.CutSuffix(e.Name(), ".jsonc.tmpl")
+			if !ok {
+				t.Errorf("%s is neither a stylesheet nor a layout", e.Name())
+				continue
+			}
+			layouts[name] = true
+		}
+	}
+
+	for _, d := range config.WaybarDesigns() {
+		if !styles[d.Name] {
+			t.Errorf("design %q has no stylesheet", d.Name)
+		}
+		delete(styles, d.Name)
+
+		if d.Layout != layouts[d.Name] {
+			t.Errorf("design %q says Layout=%v but has layout template=%v", d.Name, d.Layout, layouts[d.Name])
+		}
+		delete(layouts, d.Name)
+	}
+	for name := range styles {
+		t.Errorf("stylesheet %q belongs to no design and can never be selected", name)
+	}
+	for name := range layouts {
+		t.Errorf("layout %q belongs to no design", name)
+	}
+}
+
 // A terminal is read for hours at a time, so its font overrides the theme's
 // monospaced one, and falls back to it when unset.
 func TestFootFontOverridesTheTheme(t *testing.T) {
@@ -569,7 +706,12 @@ func TestBorderPropagatesFromTheCompositorAndCanBeOverridden(t *testing.T) {
 	}
 
 	wm := th.Border()
-	files := render(t, config.DefaultConfig())
+
+	// The bar is asked for the design that draws both a border and a radius:
+	// the default one is flush segments, which has neither to check.
+	bordered := config.DefaultConfig()
+	bordered.Waybar.Design = "pills"
+	files := render(t, bordered)
 
 	// Unset, every self-decorated surface draws the compositor's border.
 	for _, c := range []struct{ path, want string }{
@@ -591,6 +733,7 @@ func TestBorderPropagatesFromTheCompositorAndCanBeOverridden(t *testing.T) {
 
 	// Set, each surface draws its own and the compositor keeps the desktop's.
 	cfg := config.DefaultConfig()
+	cfg.Waybar.Design = "pills"
 	cfg.Rofi.Border = config.Border{Width: 6, Color: theme.MustParseColor("#ff0000"), Radius: 20}
 	cfg.Dunst.Border = config.Border{Width: 1, Color: theme.MustParseColor("#00ff00"), Radius: 2}
 	cfg.Waybar.Border = config.Border{Width: 4, Color: theme.MustParseColor("#0000ff"), Radius: 9}

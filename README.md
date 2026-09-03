@@ -20,6 +20,12 @@ One theme drives SwayFX, Waybar, Rofi, Foot, Dunst, swaylock and the GTK/Qt
 toolkits at once, so the whole desktop stays consistent. Generated files are ordinary, readable
 application configuration: nothing depends on Rice being installed to work.
 
+The bar comes in fourteen designs — powerline segments, islands, pills, an
+outline, a capsule and so on — and a design is shape only: it is a template
+written against the theme, so it renders in whatever palette is loaded. Pick
+one with `waybar.design`; see
+[docs/configuration.md](docs/configuration.md#designs).
+
 ## Status
 
 Working: themes, templates, adapters, output validation, generations, `current`
@@ -299,7 +305,7 @@ relative path and edit it. Rice prefers your copy for that one file and keeps
 using the built-ins for everything else.
 
 ```
-~/.config/rice/templates/waybar/style.css.tmpl
+~/.config/rice/templates/waybar/designs/islands.css.tmpl
 ```
 
 Templates are `text/template` with a colour-aware function set: `bare`, `hex`,

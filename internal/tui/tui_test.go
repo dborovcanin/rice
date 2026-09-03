@@ -473,11 +473,11 @@ func TestProgramsEditASetting(t *testing.T) {
 		t.Fatal("tab should move focus to the program's settings")
 	}
 
-	// waybar's first setting is its position, a fixed set of choices, so
-	// enter cycles rather than opening a text prompt.
+	// waybar's first setting is its design, a fixed set of choices, so enter
+	// cycles rather than opening a text prompt.
 	f, ok := m.field()
-	if !ok || f.Key != "waybar.position" {
-		t.Fatalf("field = %q, want waybar.position", f.Key)
+	if !ok || f.Key != "waybar.design" {
+		t.Fatalf("field = %q, want waybar.design", f.Key)
 	}
 
 	before, _ := m.sess.Get(f.Key)
@@ -496,7 +496,7 @@ func TestProgramsEditASetting(t *testing.T) {
 	}
 
 	// A numeric setting does open a prompt.
-	m.setFieldCursor(2) // waybar.height
+	m.setFieldCursor(3) // waybar.height
 	f, _ = m.field()
 	if f.Key != "waybar.height" {
 		t.Fatalf("field = %q, want waybar.height", f.Key)

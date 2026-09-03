@@ -179,6 +179,9 @@ func pChoice(key, label, help string, choices []string, get func(*Draft) *string
 
 func waybarFields() []Field {
 	fields := []Field{
+		pChoice("waybar.design", "Design", "the bar's shape; colours always come from the theme",
+			config.WaybarDesignNames(),
+			func(d *Draft) *string { return &d.Config.Waybar.Design }),
 		pChoice("waybar.position", "Position", "which edge the bar sits on",
 			[]string{"top", "bottom", "left", "right"},
 			func(d *Draft) *string { return &d.Config.Waybar.Position }),

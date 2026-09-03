@@ -74,6 +74,9 @@ func (c *Config) Normalize() {
 	if c.Sway.WallpaperMode == "" {
 		c.Sway.WallpaperMode = "fill"
 	}
+	if c.Waybar.Design == "" {
+		c.Waybar.Design = DefaultWaybarDesign
+	}
 	c.Sway.Wallpaper = ExpandPath(c.Sway.Wallpaper)
 	for i := range c.Sway.Outputs {
 		out := &c.Sway.Outputs[i]
@@ -160,6 +163,10 @@ func (c Config) Validate() error {
 
 	if c.Components.Waybar && len(c.Waybar.ModulesLeft)+len(c.Waybar.ModulesCenter)+len(c.Waybar.ModulesRight) == 0 {
 		problems = append(problems, "waybar is enabled but no modules are configured")
+	}
+	if _, ok := LookupWaybarDesign(c.Waybar.Design); !ok {
+		problems = append(problems, fmt.Sprintf("waybar.design %q is not one of %s",
+			c.Waybar.Design, strings.Join(WaybarDesignNames(), ", ")))
 	}
 	if c.Foot.ScrollbackLines < 0 {
 		problems = append(problems, "foot.scrollback_lines is negative")

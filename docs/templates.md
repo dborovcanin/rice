@@ -10,23 +10,29 @@ Put a file at the same relative path under `~/.config/rice/templates/`:
 
 ```
 ~/.config/rice/templates/
-├── waybar/style.css.tmpl        ← yours
-└── (everything else)            ← built in
+├── waybar/designs/islands.css.tmpl   ← yours
+└── (everything else)                 ← built in
 ```
 
 Resolution is per file: Rice checks your directory first and falls back to the
-embedded copy, so overriding `waybar/style.css.tmpl` leaves
-`waybar/config.jsonc.tmpl` untouched.
+embedded copy, so overriding one design's stylesheet leaves
+`waybar/config.jsonc.tmpl` and every other design untouched.
 
 | Component | Template | Generates |
 | --- | --- | --- |
 | sway | `sway/config.tmpl` | `sway/config` |
 | waybar | `waybar/config.jsonc.tmpl` | `waybar/config.jsonc` |
-| waybar | `waybar/style.css.tmpl` | `waybar/style.css` |
+| waybar | `waybar/designs/<design>.css.tmpl` | `waybar/style.css` |
 | rofi | `rofi/config.rasi.tmpl` | `rofi/config.rasi` |
 | foot | `foot/foot.ini.tmpl` | `foot/foot.ini` |
 | dunst | `dunst/dunstrc.tmpl` | `dunst/dunstrc` |
 | swaylock | `swaylock/config.tmpl` | `swaylock/config` |
+
+Which templates Waybar renders from depends on `waybar.design`: every design is
+a stylesheet under `waybar/designs/`, and a design that needs modules of its own
+brings a `waybar/designs/<design>.jsonc.tmpl` that is used instead of the shared
+layout. `powerline`, the default, is the one that does — its arrows are modules.
+See [configuration.md](configuration.md#designs).
 
 To start from the built-in copy, render it and edit from there:
 
