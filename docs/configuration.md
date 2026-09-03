@@ -383,9 +383,23 @@ the launcher with everything else.
 | `pad_x`, `pad_y` | int | `8` |
 | `cursor_style` | string | `"beam"` |
 | `cursor_blink` | bool | `true` |
+| `font_family` | string | unset — falls back to the theme's monospaced font |
+| `font_size` | int | `0` — falls back to the theme's monospaced size |
 | `extra` | string | Appended verbatim to `foot.ini`. |
 
-Font, palette and background opacity come from the theme.
+Palette and background opacity come from the theme, and so does the font until
+the terminal is given one of its own. A terminal is read for hours at a time,
+and the size that suits it is not always the size that suits a bar or a
+launcher:
+
+```toml
+[foot]
+font_family = "Iosevka"
+font_size = 13
+```
+
+Unset — empty or zero — means the theme decides, so a theme switch still moves
+the terminal with everything else.
 
 ---
 

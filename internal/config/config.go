@@ -334,7 +334,31 @@ type Foot struct {
 	PadY            int    `toml:"pad_y"`
 	CursorStyle     string `toml:"cursor_style"`
 	CursorBlink     bool   `toml:"cursor_blink"`
-	Extra           string `toml:"extra"`
+
+	// FontFamily and FontSize override the theme's monospaced font for the
+	// terminal alone. A terminal is read for hours at a time, and the size
+	// that suits it is not always the size that suits an editor's chrome or a
+	// bar. Zero or empty means the theme decides.
+	FontFamily string `toml:"font_family"`
+	FontSize   int    `toml:"font_size"`
+
+	Extra string `toml:"extra"`
+}
+
+// Font is the terminal's font family, falling back to the monospaced font.
+func (f Foot) Font(family string) string {
+	if f.FontFamily != "" {
+		return f.FontFamily
+	}
+	return family
+}
+
+// Size is the terminal's font size, falling back to the monospaced size.
+func (f Foot) Size(size int) int {
+	if f.FontSize != 0 {
+		return f.FontSize
+	}
+	return size
 }
 
 // Dunst describes notification layout and behaviour.

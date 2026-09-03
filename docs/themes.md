@@ -160,8 +160,8 @@ well.
 | --- | --- | --- | --- |
 | `ui_family` | string | `"sans-serif"` | Sway titles, Rofi, Dunst, swaylock |
 | `ui_size` | int | `11` | The same |
-| `mono_family` | string | `"monospace"` | Foot |
-| `mono_size` | int | `ui_size` | Foot |
+| `mono_family` | string | `"monospace"` | Foot, unless `foot.font_family` overrides it |
+| `mono_size` | int | `ui_size` | Foot, unless `foot.font_size` overrides it |
 | `bar_family` | string | `ui_family` | Waybar |
 | `bar_size` | int | `ui_size` | Waybar |
 

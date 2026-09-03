@@ -457,6 +457,49 @@ func TestRofiFontAndIconSizeOverrideTheTheme(t *testing.T) {
 	}
 }
 
+// A terminal is read for hours at a time, so its font overrides the theme's
+// monospaced one, and falls back to it when unset.
+func TestFootFontOverridesTheTheme(t *testing.T) {
+	builder := newBuilder()
+	themes := theme.NewStore("", rice.Themes, "themes")
+	th, err := themes.Load("gruvbox-dark")
+	if err != nil {
+		t.Fatalf("load theme: %v", err)
+	}
+
+	render := func(t *testing.T, cfg config.Config) string {
+		t.Helper()
+		cfg.Normalize()
+		files, err := builder.Render(cfg, th, 1)
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		for _, f := range files {
+			if f.Path == "foot/foot.ini" {
+				return string(f.Content)
+			}
+		}
+		t.Fatal("foot produced no configuration")
+		return ""
+	}
+
+	// Unset, the terminal follows the theme's monospaced font.
+	out := render(t, config.DefaultConfig())
+	if want := fmt.Sprintf("font=%s:size=%d", th.Fonts.MonoFamily, th.Fonts.MonoSize); !strings.Contains(out, want) {
+		t.Errorf("font should fall back to the theme's %q:\n%s", want, firstLines(out, 20))
+	}
+
+	// Set, it wins.
+	cfg := config.DefaultConfig()
+	cfg.Foot.FontFamily = "Iosevka"
+	cfg.Foot.FontSize = 15
+
+	out = render(t, cfg)
+	if !strings.Contains(out, "font=Iosevka:size=15") {
+		t.Errorf("the terminal font override was ignored:\n%s", firstLines(out, 20))
+	}
+}
+
 // A notification is read from wherever you happen to be looking, so its font
 // overrides the theme's, and falls back to it when unset.
 func TestDunstFontOverridesTheTheme(t *testing.T) {

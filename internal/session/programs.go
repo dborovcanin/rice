@@ -109,6 +109,14 @@ func pickFont(f Field) Field {
 	return f
 }
 
+// pickMonoFont is the same picker with the monospaced families offered first,
+// which is the only kind a terminal can use.
+func pickMonoFont(f Field) Field {
+	f = pickFont(f)
+	f.Mono = true
+	return f
+}
+
 // pickIconTheme turns a text field into one picked from the installed icon
 // themes.
 func pickIconTheme(f Field) Field {
@@ -247,6 +255,18 @@ func footFields() []Field {
 			func(d *Draft) *string { return &d.Config.Foot.CursorStyle }),
 		pBool("foot.cursor_blink", "Cursor blink", "",
 			func(d *Draft) *bool { return &d.Config.Foot.CursorBlink }),
+
+		// The terminal is read for hours, so it is the other thing that often
+		// wants a size of its own. These override the theme's monospaced font
+		// for the terminal alone; unset follows it.
+		override(pickMonoFont(pText("foot.font_family", "Font family",
+			"empty follows the theme's monospaced font",
+			func(d *Draft) *string { return &d.Config.Foot.FontFamily })),
+			func(d Draft) string { return d.Theme.Fonts.MonoFamily }),
+
+		override(pInt("foot.font_size", "Font size", "0 follows the theme's monospaced size", 0, 96, 1,
+			func(d *Draft) *int { return &d.Config.Foot.FontSize }),
+			func(d Draft) string { return strconv.Itoa(d.Theme.Fonts.MonoSize) }),
 	}
 
 	return append(TerminalFields(), behaviour...)

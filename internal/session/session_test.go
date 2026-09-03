@@ -902,6 +902,36 @@ func TestRofiOverridesFollowTheThemeUntilSet(t *testing.T) {
 	}
 }
 
+// A terminal can only use a monospaced family, so its picker offers those
+// first — the same as the global mono font field it overrides.
+func TestFootFontOverrideIsPickedFromMonospacedFamilies(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	byKey := map[string]session.Field{}
+	for _, f := range session.ProgramFields("foot") {
+		byKey[f.Key] = f
+	}
+
+	family := byKey["foot.font_family"]
+	if family.Kind != session.KindFont || !family.Mono {
+		t.Error("foot.font_family should pick from the monospaced families")
+	}
+	for _, key := range []string{"foot.font_family", "foot.font_size"} {
+		if byKey[key].Store != session.StoreConfig {
+			t.Errorf("%s should save to config.toml", key)
+		}
+		if !s.Inherited(key) {
+			t.Errorf("%s should start following the theme", key)
+		}
+	}
+	if got, want := s.Effective("foot.font_size"), strconv.Itoa(s.Theme().Fonts.MonoSize); got != want {
+		t.Errorf("foot.font_size shows %q, want the theme's mono size %q", got, want)
+	}
+	if got, want := s.Effective("foot.font_family"), s.Theme().Fonts.MonoFamily; got != want {
+		t.Errorf("foot.font_family shows %q, want the theme's mono family %q", got, want)
+	}
+}
+
 // These hold the same kind of value as the global font and icon-theme fields,
 // so they are picked from the same lists rather than typed.
 func TestRofiOverridesArePickable(t *testing.T) {

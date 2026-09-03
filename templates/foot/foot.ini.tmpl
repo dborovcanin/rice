@@ -2,7 +2,7 @@
 # Theme: {{ .Theme.Name }}
 # Edit ~/.config/rice/config.toml or the theme, then run `rice apply`.
 
-font={{ .Fonts.MonoFamily }}:size={{ .Fonts.MonoSize }}
+font={{ .Foot.Font .Fonts.MonoFamily }}:size={{ .Foot.Size .Fonts.MonoSize }}
 term={{ .Foot.Term }}
 initial-color-theme={{ if .Dark }}dark{{ else }}light{{ end }}
 pad={{ .Foot.PadX }}x{{ .Foot.PadY }}

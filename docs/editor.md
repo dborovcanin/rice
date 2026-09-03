@@ -194,7 +194,8 @@ to following the theme.
 
 These pick from the same lists as the global fields they override, because
 they hold the same kind of value: `rofi.font_family` offers the installed
-families, `rofi.icon_theme` the installed icon themes. A colour override shows
+families, `foot.font_family` the monospaced ones first, `rofi.icon_theme` the
+installed icon themes. A colour override shows
 the swatch of the border it follows, not a black one.
 
 `-1` is how a border is removed rather than followed, under an application or
@@ -264,7 +265,7 @@ where they are already comfortable to edit by hand.
 | `sway` | None — the compositor is in the global SwayFX section. Preview and copy still work |
 | `waybar` | Position, layer, height, spacing, and border overrides |
 | `rofi` | Width, lines, columns, icons, drun label, and overrides for icon theme, font family and size, icon size and the border |
-| `foot` | **The 16 ANSI colours**, selection, cursor and URL, then server mode, shell, TERM, scrollback, padding, cursor style and blink |
+| `foot` | **The 16 ANSI colours**, selection, cursor and URL, then server mode, shell, TERM, scrollback, padding, cursor style and blink, and overrides for font family and size |
 | `dunst` | Origin, size, offset, gap, follow, the three timeouts, max icon size, and overrides for font family and size and the border |
 | `swaylock` | Image and scaling, blur, indicator radius and thickness, failed attempts, clock |
 | `gtk` | Whether to write `settings.ini` and the palette stylesheet |
