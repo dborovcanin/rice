@@ -383,6 +383,13 @@ critical = 15
 
 Module colours come from the theme; only behaviour belongs here.
 
+The default formats lead with a Nerd Font glyph, because a row of bare
+percentages does not say which one is the disk and which one is the battery.
+They are the icons the bundled themes' bar font carries; a bar font without
+them draws blank boxes, so either install one — the themes ask for
+`JetBrainsMono Nerd Font` — or set `format` for those modules here without the
+glyph.
+
 ---
 
 ## `[rofi]`

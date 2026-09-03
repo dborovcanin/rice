@@ -13,6 +13,7 @@
 @define-color warning #df8e1d;
 @define-color error #d20f39;
 @define-color border #1e66f5;
+@define-color chip rgba(230, 233, 239, 0.9686274509803922);
 
 * {
   font-family: JetBrainsMono Nerd Font, monospace;
@@ -22,24 +23,37 @@
   border-radius: 0;
 }
 
+/* The bar paints nothing: what you see is the block of segments, and the
+   opacity the theme asks for belongs to those rather than to a strip behind
+   them. The arrows taper into the wallpaper. */
 window#waybar {
-  background: rgba(239, 241, 245, 0.9686274509803922);
+  background: transparent;
   color: @foreground;
 }
 
 window#waybar.hidden { opacity: 0.2; }
 
-/* The arrows are glyphs, not shapes: each one is drawn in the colour of the
-   segment it points into, over the colour of the bar behind it. */
-#custom-left-arrow,
-#custom-right-arrow {
-  color: @surface;
+/* A group is one unbroken block. The solid arrows cap its ends, drawn in the
+   colour of the block over nothing at all; the thin chevrons rule between two
+   modules inside it, and so sit on the block's own colour. They point the way
+   the block grows: right from the left edge, left from the right one. */
+#custom-arrow-open,
+#custom-arrow-close {
+  color: @chip;
   background: transparent;
   font-size: 17pt;
 }
 
+#custom-separator-left,
+#custom-separator-right {
+  color: @muted;
+  background: @chip;
+  padding: 0 6px;
+  font-size: 17pt;
+}
+
 #workspaces {
-  background: @surface;
+  background: @chip;
   padding: 0 6px;
 }
 
@@ -56,9 +70,28 @@ window#waybar.hidden { opacity: 0.2; }
 
 #mode,
 #window {
-  background: @surface;
+  background: @chip;
   padding: 0 12px;
   color: @muted;
+}
+
+/* Nothing inside a block has a margin: a gap would break the run. */
+#workspaces,
+#mode,
+#window,
+#clock,
+#cpu,
+#memory,
+#disk,
+#battery,
+#pulseaudio,
+#network,
+#backlight,
+#temperature,
+#idle_inhibitor,
+#tray {
+  margin: 0;
+  border-radius: 0;
 }
 
 #mode { color: @warning; }
@@ -74,7 +107,7 @@ window#waybar.hidden { opacity: 0.2; }
 #temperature,
 #idle_inhibitor,
 #tray {
-  background: @surface;
+  background: @chip;
   padding: 0 12px;
 }
 

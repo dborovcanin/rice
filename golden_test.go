@@ -3,6 +3,7 @@ package rice_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -460,6 +461,107 @@ func TestRofiFontAndIconSizeOverrideTheTheme(t *testing.T) {
 	}
 	if strings.Contains(out, fmt.Sprintf("%dpx", th.Icons.Size)) {
 		t.Error("the theme's icon size is still in the output")
+	}
+}
+
+// A bar of bare percentages says nothing about what is 8% and what is 73%.
+// Every module Rice puts on the bar by default leads with a glyph, and so do
+// the powerline arrows. An empty glyph is invisible rather than broken, which
+// is how these went missing in the first place — hence a test.
+func TestTheDefaultBarSaysWhatItIsShowing(t *testing.T) {
+	builder := newBuilder()
+	themes := theme.NewStore("", rice.Themes, "themes")
+	th, err := themes.Load("gruvbox-dark")
+	if err != nil {
+		t.Fatalf("load theme: %v", err)
+	}
+
+	cfg := config.DefaultConfig()
+	cfg.Normalize()
+	files, err := builder.Render(cfg, th, 1)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+
+	var bar []byte
+	for _, f := range files {
+		if f.Path == "waybar/config.jsonc" {
+			bar = f.Content
+		}
+	}
+	if bar == nil {
+		t.Fatal("no bar configuration")
+	}
+
+	// The generated file comments only ever take a whole line.
+	var body []string
+	for _, line := range strings.Split(string(bar), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "//") {
+			body = append(body, line)
+		}
+	}
+
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(strings.Join(body, "\n")), &doc); err != nil {
+		t.Fatalf("parse bar: %v", err)
+	}
+
+	// glyph reports whether a format string shows something other than the
+	// number: an icon of its own, or one taken from format-icons.
+	glyph := func(s string) bool {
+		if strings.Contains(s, "{icon}") {
+			return true
+		}
+		for _, r := range s {
+			if r >= 0xe000 {
+				return true
+			}
+		}
+		return false
+	}
+
+	checked := 0
+	for name, raw := range doc {
+		settings, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		for key, value := range settings {
+			switch {
+			case !strings.HasPrefix(key, "format"):
+				continue
+
+			case key == "format-icons":
+				icons, ok := value.([]any)
+				if !ok {
+					// A map of icons by name is equally good.
+					continue
+				}
+				if len(icons) == 0 {
+					t.Errorf("%s.%s is empty", name, key)
+				}
+				for i, icon := range icons {
+					if text, _ := icon.(string); !glyph(text) {
+						t.Errorf("%s.%s[%d] = %q, which draws nothing", name, key, i, text)
+					}
+				}
+				checked++
+
+			default:
+				text, ok := value.(string)
+				if !ok {
+					continue
+				}
+				if !glyph(text) {
+					t.Errorf("%s.%s = %q: a number with no icon does not say what it is", name, key, text)
+				}
+				checked++
+			}
+		}
+	}
+
+	if checked < 8 {
+		t.Errorf("only %d formats checked; the default bar should have more than that", checked)
 	}
 }
 

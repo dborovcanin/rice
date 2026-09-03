@@ -2,9 +2,19 @@
 // Theme: catppuccin-latte — powerline
 //
 // The arrows are modules rather than shapes, because CSS cannot cut a corner
-// off a Waybar module: each one is a glyph the stylesheet colours to match the
-// segment beside it. One follows every module on the left, one leads every
-// module on the right, and the centre group is capped at both ends.
+// off a Waybar module.
+//
+// A group of modules is one unbroken block: a solid arrow caps each end of it,
+// and inside it a thin chevron rules between one module and the next. Nothing
+// of the bar shows between two segments — that gap is what makes a powerline
+// bar look broken rather than segmented.
+//
+// The chevrons point the way the block grows. The left group grows rightwards
+// from the left edge of the screen, so its chevrons point right; the right
+// group grows leftwards from the right edge, so its chevrons point left.
+//
+// The outermost end of a group is left square: it runs to the edge of the
+// screen, and there is nothing beyond it to point at.
 //
 // Spacing is zero whatever the configuration says: an arrow with a gap beside
 // it stops being an arrow.
@@ -14,39 +24,54 @@
   "height": 32,
   "spacing": 0,
   "modules-left": [
-    "sway/workspaces", "custom/right-arrow",
-    "sway/mode", "custom/right-arrow"
+    "sway/workspaces",
+    "custom/separator-right", "sway/mode",
+    "custom/arrow-close"
   ],
   "modules-center": [
-    "custom/left-arrow", "sway/window",
-    "custom/right-arrow"
+    "custom/arrow-open", "sway/window",
+    "custom/arrow-close"
   ],
   "modules-right": [
-    "custom/left-arrow", "pulseaudio",
-    "custom/left-arrow", "cpu",
-    "custom/left-arrow", "memory",
-    "custom/left-arrow", "disk",
-    "custom/left-arrow", "battery",
-    "custom/left-arrow", "clock",
-    "custom/left-arrow", "tray"
+    "custom/arrow-open", "pulseaudio",
+    "custom/separator-left", "cpu",
+    "custom/separator-left", "memory",
+    "custom/separator-left", "disk",
+    "custom/separator-left", "battery",
+    "custom/separator-left", "clock",
+    "custom/separator-left", "tray"
   ],
-  "custom/left-arrow": {
-    "format": "",
+  "custom/arrow-open": {
+    "format": "",
     "tooltip": false
   },
-  "custom/right-arrow": {
-    "format": "",
+  "custom/arrow-close": {
+    "format": "",
+    "tooltip": false
+  },
+  "custom/separator-right": {
+    "format": "",
+    "tooltip": false
+  },
+  "custom/separator-left": {
+    "format": "",
     "tooltip": false
   },
   "battery": {
-    "format": " {capacity}%",
-    "format-charging": " {capacity}%",
+    "format": "{icon} {capacity}%",
+    "format-charging": "󰂄 {capacity}%",
     "format-icons": [
-      "",
-      "",
-      "",
-      "",
-      ""
+      "󰂎",
+      "󰁺",
+      "󰁻",
+      "󰁼",
+      "󰁽",
+      "󰁾",
+      "󰁿",
+      "󰂀",
+      "󰂁",
+      "󰂂",
+      "󰁹"
     ],
     "states": {
       "critical": 15,
@@ -54,26 +79,34 @@
     }
   },
   "clock": {
-    "format": " {:%H:%M}",
-    "format-alt": " {:%a %d %b %Y}",
+    "format": "󰥔 {:%H:%M}",
+    "format-alt": "󰃮 {:%a %d %b %Y}",
     "tooltip-format": "<tt>{calendar}</tt>"
   },
   "cpu": {
-    "format": " {usage}%",
+    "format": "󰘚 {usage}%",
     "interval": 5
   },
   "disk": {
-    "format": " {percentage_used}%",
+    "format": "󰋊 {percentage_used}%",
     "interval": 60,
     "path": "/"
   },
   "memory": {
-    "format": " {percentage}%",
+    "format": "󰍛 {percentage}%",
     "interval": 5
   },
   "pulseaudio": {
-    "format": " {volume}%",
-    "format-muted": " muted",
+    "format": "{icon} {volume}%",
+    "format-icons": {
+      "default": [
+        "󰕿",
+        "󰖀",
+        "󰕾"
+      ],
+      "headphone": "󰋋"
+    },
+    "format-muted": "󰝟",
     "on-click": "pavucontrol",
     "scroll-step": 5
   },
