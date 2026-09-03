@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	"github.com/dborovcanin/rice/internal/assets"
+	"github.com/dborovcanin/rice/internal/config"
+	"github.com/dborovcanin/rice/internal/theme"
 )
 
 // ProgramFields returns the settings that belong to one program rather than to
@@ -114,6 +116,52 @@ func pickIconTheme(f Field) Field {
 	return f
 }
 
+// pColor is a colour that belongs to one program's configuration rather than
+// to the palette. The palette is appearance and saves to the theme; a border a
+// single application draws differently from the rest of the desktop is that
+// application's structure, and saves to config.toml.
+func pColor(key, label, help string, get func(*Draft) *theme.Color) Field {
+	return Field{Key: key, Label: label, Help: help, Kind: KindColor, Store: StoreConfig, color: get}
+}
+
+// borderFields are one program's border overrides, and they exist only for a
+// program that draws its own frame. SwayFX draws the border, the colour and
+// the corner radius of an ordinary window itself, so a terminal given its own
+// border setting would change nothing; the bar, the launcher and notifications
+// are layer-shell surfaces the compositor never decorates, and they are the
+// ones that can differ from the desktop.
+//
+// wm is the border the program follows while it sets none of its own, which is
+// the same one its template resolves against.
+func borderFields(component string, wm func(Draft) theme.Border, get func(*Draft) *config.Border) []Field {
+	if !config.SelfDecorated(component) {
+		return nil
+	}
+	return []Field{
+		override(pInt(component+".border.width", "Border width", "0 follows the desktop, -1 removes it",
+			theme.BorderNone, 32, 1,
+			func(d *Draft) *int { return &get(d).Width }),
+			func(d Draft) string { return strconv.Itoa(wm(d).Width) }),
+
+		override(pColor(component+".border.color", "Border colour", "unset follows the desktop's border colour",
+			func(d *Draft) *theme.Color { return &get(d).Color }),
+			func(d Draft) string { return wm(d).Color.String() }),
+
+		override(pInt(component+".border.radius", "Corner radius", "0 follows the desktop, -1 squares the corners",
+			theme.BorderNone, 64, 1,
+			func(d *Draft) *int { return &get(d).Radius }),
+			func(d Draft) string { return strconv.Itoa(wm(d).Radius) }),
+	}
+}
+
+// The launcher and the bar are surfaces you are looking at, so they follow the
+// focused border; a notification is something you glance at while looking
+// elsewhere, so it follows the resting one. Each template makes the same
+// choice, and these are what the editor shows an unset override following.
+func focusedBorder(d Draft) theme.Border { return d.Theme.Border().Focused() }
+
+func restingBorder(d Draft) theme.Border { return d.Theme.Border() }
+
 func pChoice(key, label, help string, choices []string, get func(*Draft) *string) Field {
 	return Field{
 		Key: key, Label: label, Help: help, Kind: KindChoice,
@@ -122,7 +170,7 @@ func pChoice(key, label, help string, choices []string, get func(*Draft) *string
 }
 
 func waybarFields() []Field {
-	return []Field{
+	fields := []Field{
 		pChoice("waybar.position", "Position", "which edge the bar sits on",
 			[]string{"top", "bottom", "left", "right"},
 			func(d *Draft) *string { return &d.Config.Waybar.Position }),
@@ -134,10 +182,12 @@ func waybarFields() []Field {
 		pInt("waybar.spacing", "Spacing", "gap between modules, in pixels", 0, 64, 1,
 			func(d *Draft) *int { return &d.Config.Waybar.Spacing }),
 	}
+	return append(fields, borderFields("waybar", focusedBorder,
+		func(d *Draft) *config.Border { return &d.Config.Waybar.Border })...)
 }
 
 func rofiFields() []Field {
-	return []Field{
+	fields := []Field{
 		pText("rofi.width", "Width", "any rasi width, such as 40% or 600px",
 			func(d *Draft) *string { return &d.Config.Rofi.Width }),
 		pInt("rofi.lines", "Lines", "rows shown before scrolling", 1, 64, 1,
@@ -172,6 +222,8 @@ func rofiFields() []Field {
 		pText("rofi.display_drun", "Drun label", "the prompt shown in application mode",
 			func(d *Draft) *string { return &d.Config.Rofi.DisplayDrun }),
 	}
+	return append(fields, borderFields("rofi", focusedBorder,
+		func(d *Draft) *config.Border { return &d.Config.Rofi.Border })...)
 }
 
 // footFields leads with the shared ANSI palette: it is what a terminal is for,
@@ -226,7 +278,7 @@ func qtFields() []Field {
 }
 
 func dunstFields() []Field {
-	return []Field{
+	fields := []Field{
 		pChoice("dunst.origin", "Origin", "which corner notifications appear in",
 			[]string{
 				"top-left", "top-center", "top-right",
@@ -265,6 +317,8 @@ func dunstFields() []Field {
 			func(d *Draft) *int { return &d.Config.Dunst.FontSize }),
 			func(d Draft) string { return strconv.Itoa(d.Theme.Fonts.UISize) }),
 	}
+	return append(fields, borderFields("dunst", restingBorder,
+		func(d *Draft) *config.Border { return &d.Config.Dunst.Border })...)
 }
 
 func swaylockFields() []Field {

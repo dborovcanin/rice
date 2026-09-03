@@ -2,6 +2,9 @@
 # Theme: {{ .Theme.Name }}
 # This file is generated output. Edit ~/.config/rice/config.toml instead and
 # run `rice apply`; edits made here are lost on the next generation.
+{{- /* The compositor's border is the desktop's border: what it draws here is
+       what a bar, a launcher and a notification follow. */}}
+{{- $border := .Border }}
 
 ### Variables
 
@@ -36,15 +39,15 @@ set $ws{{ .Key }} "{{ .Name }}"
 font pango:{{ font .Fonts.UIFamily .Fonts.UISize }}
 
 #                       border  background  text  indicator  child_border
-client.focused          {{ .Colors.BorderFocus }} {{ .Colors.Surface }} {{ .Colors.Foreground }} {{ .Colors.Primary }} {{ .Colors.BorderFocus }}
-client.focused_inactive {{ .Colors.Border }} {{ .Colors.SurfaceAlt }} {{ .Colors.Muted }} {{ .Colors.Border }} {{ .Colors.Border }}
-client.unfocused        {{ .Colors.Border }} {{ .Colors.Background }} {{ .Colors.Muted }} {{ .Colors.Border }} {{ .Colors.Border }}
+client.focused          {{ $border.Focus }} {{ .Colors.Surface }} {{ .Colors.Foreground }} {{ .Colors.Primary }} {{ $border.Focus }}
+client.focused_inactive {{ $border.Color }} {{ .Colors.SurfaceAlt }} {{ .Colors.Muted }} {{ $border.Color }} {{ $border.Color }}
+client.unfocused        {{ $border.Color }} {{ .Colors.Background }} {{ .Colors.Muted }} {{ $border.Color }} {{ $border.Color }}
 client.urgent           {{ .Colors.Error }} {{ .Colors.Error }} {{ contrast .Colors.Error }} {{ .Colors.Error }} {{ .Colors.Error }}
-client.placeholder      {{ .Colors.Border }} {{ .Colors.Background }} {{ .Colors.Foreground }} {{ .Colors.Border }} {{ .Colors.Border }}
+client.placeholder      {{ $border.Color }} {{ .Colors.Background }} {{ .Colors.Foreground }} {{ $border.Color }} {{ $border.Color }}
 client.background       {{ .Colors.Background }}
 
-default_border {{ if .Sway.Titlebar }}normal{{ else }}pixel {{ .UI.BorderWidth }}{{ end }}
-default_floating_border {{ if .Sway.Titlebar }}normal{{ else }}pixel {{ .UI.BorderWidth }}{{ end }}
+default_border {{ if .Sway.Titlebar }}normal{{ else if gt $border.Width 0 }}pixel {{ $border.Width }}{{ else }}none{{ end }}
+default_floating_border {{ if .Sway.Titlebar }}normal{{ else if gt $border.Width 0 }}pixel {{ $border.Width }}{{ else }}none{{ end }}
 smart_borders {{ if .Sway.SmartBorders }}on{{ else }}off{{ end }}
 
 gaps inner {{ .UI.GapsInner }}
@@ -55,8 +58,8 @@ focus_follows_mouse {{ if .Sway.FocusFollowsMouse }}yes{{ else }}no{{ end }}
 floating_modifier $mod
 
 ### SwayFX effects
-{{ if gt .UI.Radius 0 }}
-corner_radius {{ .UI.Radius }}
+{{ if gt $border.Radius 0 }}
+corner_radius {{ $border.Radius }}
 {{- end }}
 {{- if gt .UI.BlurRadius 0 }}
 blur enable

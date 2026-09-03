@@ -500,6 +500,125 @@ func TestDunstFontOverridesTheTheme(t *testing.T) {
 	}
 }
 
+// The desktop has one border, and everything that draws its own frame follows
+// it. An application that draws its own can be given a different one; a window
+// SwayFX decorates cannot, because the compositor draws that border itself.
+func TestBorderPropagatesFromTheCompositorAndCanBeOverridden(t *testing.T) {
+	builder := newBuilder()
+	themes := theme.NewStore("", rice.Themes, "themes")
+	th, err := themes.Load("gruvbox-dark")
+	if err != nil {
+		t.Fatalf("load theme: %v", err)
+	}
+
+	render := func(t *testing.T, cfg config.Config) map[string]string {
+		t.Helper()
+		cfg.Normalize()
+		files, err := builder.Render(cfg, th, 1)
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		out := map[string]string{}
+		for _, f := range files {
+			out[f.Path] = string(f.Content)
+		}
+		return out
+	}
+
+	wm := th.Border()
+	files := render(t, config.DefaultConfig())
+
+	// Unset, every self-decorated surface draws the compositor's border.
+	for _, c := range []struct{ path, want string }{
+		{"sway/config", fmt.Sprintf("pixel %d", wm.Width)},
+		{"sway/config", fmt.Sprintf("corner_radius %d", wm.Radius)},
+		{"rofi/config.rasi", fmt.Sprintf("border:           %dpx", wm.Width)},
+		{"rofi/config.rasi", fmt.Sprintf("border-color:     %s", wm.Focus)},
+		{"rofi/config.rasi", fmt.Sprintf("border-radius:    %dpx", wm.Radius)},
+		{"dunst/dunstrc", fmt.Sprintf("frame_width = %d", wm.Width)},
+		{"dunst/dunstrc", fmt.Sprintf("frame_color = %q", wm.Color)},
+		{"dunst/dunstrc", fmt.Sprintf("corner_radius = %d", wm.Radius)},
+		{"waybar/style.css", fmt.Sprintf("@define-color border %s;", wm.Focus)},
+		{"waybar/style.css", fmt.Sprintf("border-radius: %dpx", wm.Radius)},
+	} {
+		if !strings.Contains(files[c.path], c.want) {
+			t.Errorf("%s should follow the desktop's border %q:\n%s", c.path, c.want, firstLines(files[c.path], 40))
+		}
+	}
+
+	// Set, each surface draws its own and the compositor keeps the desktop's.
+	cfg := config.DefaultConfig()
+	cfg.Rofi.Border = config.Border{Width: 6, Color: theme.MustParseColor("#ff0000"), Radius: 20}
+	cfg.Dunst.Border = config.Border{Width: 1, Color: theme.MustParseColor("#00ff00"), Radius: 2}
+	cfg.Waybar.Border = config.Border{Width: 4, Color: theme.MustParseColor("#0000ff"), Radius: 9}
+
+	files = render(t, cfg)
+	for _, c := range []struct{ path, want string }{
+		{"rofi/config.rasi", "border:           6px"},
+		{"rofi/config.rasi", "border-color:     #ff0000"},
+		{"rofi/config.rasi", "border-radius:    20px"},
+		{"dunst/dunstrc", "frame_width = 1"},
+		{"dunst/dunstrc", `frame_color = "#00ff00"`},
+		{"dunst/dunstrc", "corner_radius = 2"},
+		{"waybar/style.css", "@define-color border #0000ff;"},
+		{"waybar/style.css", "border: 4px solid @border;"},
+		{"waybar/style.css", "border-radius: 9px"},
+		// The compositor is not one of them: it is where the border comes from.
+		{"sway/config", fmt.Sprintf("pixel %d", wm.Width)},
+		{"sway/config", fmt.Sprintf("corner_radius %d", wm.Radius)},
+	} {
+		if !strings.Contains(files[c.path], c.want) {
+			t.Errorf("%s missing %q:\n%s", c.path, c.want, firstLines(files[c.path], 40))
+		}
+	}
+
+	// A border can be turned off, which zero cannot say because zero already
+	// means "follow the desktop".
+	cfg = config.DefaultConfig()
+	cfg.Rofi.Border = config.Border{Width: theme.BorderNone, Radius: theme.BorderNone}
+	files = render(t, cfg)
+	for _, c := range []struct{ path, want string }{
+		{"rofi/config.rasi", "border:           0px"},
+		{"rofi/config.rasi", "border-radius:    0px"},
+	} {
+		if !strings.Contains(files[c.path], c.want) {
+			t.Errorf("%s missing %q:\n%s", c.path, c.want, firstLines(files[c.path], 40))
+		}
+	}
+
+	// And the desktop can lose its border, which reaches Sway as "none"
+	// rather than as a border zero pixels wide.
+	bare := th
+	bare.UI.BorderWidth = theme.BorderNone
+	files = func() map[string]string {
+		cfg := config.DefaultConfig()
+		cfg.Normalize()
+		rendered, err := builder.Render(cfg, bare, 1)
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		out := map[string]string{}
+		for _, f := range rendered {
+			out[f.Path] = string(f.Content)
+		}
+		return out
+	}()
+	if !strings.Contains(files["sway/config"], "default_border none") {
+		t.Errorf("sway should draw no border:\n%s", firstLines(files["sway/config"], 60))
+	}
+	if !strings.Contains(files["dunst/dunstrc"], "frame_width = 0") {
+		t.Error("notifications should follow the desktop into having no frame")
+	}
+
+	// A terminal is an ordinary window: SwayFX draws its border, so nothing in
+	// its configuration mentions one.
+	for _, word := range []string{"border", "corner_radius"} {
+		if strings.Contains(files["foot/foot.ini"], word) {
+			t.Errorf("foot.ini mentions %q; a decorated window's border is the compositor's", word)
+		}
+	}
+}
+
 func firstLines(s string, n int) string {
 	lines := strings.Split(s, "\n")
 	if len(lines) > n {

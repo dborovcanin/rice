@@ -74,6 +74,56 @@ type UI struct {
 	DimInactive float64 `toml:"dim_inactive,omitempty"`
 }
 
+// Border is the desktop's border as one value: the width the compositor draws
+// around a window, the colour it draws it in, the colour a focused window
+// gets, and the radius it rounds the corners to.
+//
+// It is assembled from the palette and the shared geometry rather than stored
+// beside them, so the desktop has one border rather than four that drift
+// apart. A surface the compositor does not decorate — a bar, a launcher, a
+// notification — draws its own frame, and takes this one so that it matches.
+type Border struct {
+	Width  int
+	Color  Color
+	Focus  Color
+	Radius int
+}
+
+// BorderNone is the width, or the radius, that means "draw none of it".
+//
+// Zero means "unset" everywhere in the theme format — it is what tells
+// normalization to fill a value in, and what tells an application to follow
+// the desktop — so turning a border off needs a value of its own. Anything
+// negative reads as none and reaches a template as zero.
+const BorderNone = -1
+
+// Border is what the compositor draws around a window.
+func (t Theme) Border() Border {
+	return Border{
+		Width:  t.UI.BorderWidth,
+		Color:  t.Colors.Border,
+		Focus:  t.Colors.BorderFocus,
+		Radius: t.UI.Radius,
+	}.Drawn()
+}
+
+// Drawn is the border as a template sees it: a width or radius asking for no
+// border arrives as zero, so nothing has to know about the sentinel except
+// the person who typed it.
+func (b Border) Drawn() Border {
+	b.Width = max(b.Width, 0)
+	b.Radius = max(b.Radius, 0)
+	return b
+}
+
+// Focused is the same border in the colour a focused window gets. A launcher
+// is the surface you are looking at when it is open, so it follows this rather
+// than the resting colour.
+func (b Border) Focused() Border {
+	b.Color = b.Focus
+	return b
+}
+
 // Fonts describes the two font roles Rice cares about: interface chrome and
 // monospaced terminal text.
 type Fonts struct {

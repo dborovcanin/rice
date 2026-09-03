@@ -1,5 +1,7 @@
 package config
 
+import "github.com/dborovcanin/rice/internal/theme"
+
 // Config is the user's source configuration: everything that is not
 // appearance. Appearance lives in a theme, structure lives here.
 type Config struct {
@@ -199,6 +201,56 @@ type Idle struct {
 	LockOnSleep bool `toml:"lock_on_sleep"`
 }
 
+// Border overrides the desktop's border for one application: the width it
+// draws, the colour it draws it in, and the radius it rounds its corners to.
+//
+// Zero and empty mean the desktop's border, so an application that has not
+// been given one of its own still moves with a theme switch. A width or radius
+// of theme.BorderNone means the application draws none at all, which is not
+// the same request as leaving it unset.
+//
+// The keys are omitted when unset rather than written as zeroes, because a
+// border colour spelled "#00000000" reads as black rather than as absent.
+type Border struct {
+	Width  int         `toml:"width,omitempty"`
+	Color  theme.Color `toml:"color,omitempty"`
+	Radius int         `toml:"radius,omitempty"`
+}
+
+// Resolve overlays the override on the border the compositor draws, which is
+// what an application that sets none of this ends up with.
+func (b Border) Resolve(wm theme.Border) theme.Border {
+	if b.Width != 0 {
+		wm.Width = b.Width
+	}
+	if !b.Color.IsZero() {
+		wm.Color = b.Color
+	}
+	if b.Radius != 0 {
+		wm.Radius = b.Radius
+	}
+	return wm.Drawn()
+}
+
+// selfDecorated is the set of components that draw their own frame. They are
+// the layer-shell surfaces: a bar, a launcher and a notification are drawn
+// beside the windows rather than as one of them, and the compositor never puts
+// a border or a rounded corner on any of them.
+//
+// Everything else is an ordinary window. SwayFX draws its border, its colour
+// and its corner radius itself, from the same desktop border these follow, so
+// a per-application setting there would be a silent no-op — which is why only
+// this set carries one.
+var selfDecorated = map[string]bool{
+	"waybar": true,
+	"rofi":   true,
+	"dunst":  true,
+}
+
+// SelfDecorated reports whether a component draws its own border rather than
+// being given one by SwayFX, and so whether it can override the desktop's.
+func SelfDecorated(component string) bool { return selfDecorated[component] }
+
 // Waybar describes the bar layout. Modules holds raw per-module settings that
 // are emitted as JSON, so any Waybar module option is reachable without Rice
 // having to model it.
@@ -213,6 +265,10 @@ type Waybar struct {
 	ModulesRight  []string `toml:"modules_right"`
 
 	Modules map[string]map[string]any `toml:"modules"`
+
+	// Border overrides the desktop's border for the bar alone: its tooltip
+	// frame and the corners of its modules.
+	Border Border `toml:"border"`
 
 	ExtraCSS string `toml:"extra_css"`
 }
@@ -234,6 +290,10 @@ type Rofi struct {
 	// IconSize overrides the theme's icon size for the launcher alone. Zero
 	// means the theme decides.
 	IconSize int `toml:"icon_size"`
+
+	// Border overrides the desktop's border for the launcher alone. Rofi is a
+	// layer-shell surface, so this frame is its own to draw.
+	Border Border `toml:"border"`
 
 	Modes       []string `toml:"modes"`
 	DisplayDrun string   `toml:"display_drun"`
@@ -297,6 +357,11 @@ type Dunst struct {
 	// Zero or empty means the theme decides.
 	FontFamily string `toml:"font_family"`
 	FontSize   int    `toml:"font_size"`
+
+	// Border overrides the desktop's border for notifications alone. The
+	// urgent frames keep their own colours: an urgent notification should not
+	// look like a quiet one.
+	Border Border `toml:"border"`
 
 	Extra string `toml:"extra"`
 }

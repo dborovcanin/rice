@@ -165,8 +165,15 @@ func swayFXFields() []Field {
 		return Field{Key: key, Label: label, Group: GroupSwayFX, Kind: KindColor, Derives: true, color: get}
 	}
 
+	// Zero is what tells normalization to fill a value in, so a desktop with
+	// no border at all has to say so with a value of its own.
+	borderWidth := px("ui.border_width", "Border width", 32,
+		func(d *Draft) *int { return &d.Theme.UI.BorderWidth })
+	borderWidth.Min = theme.BorderNone
+	borderWidth.Help = "-1 draws no border at all"
+
 	geometry := []Field{
-		px("ui.border_width", "Border width", 32, func(d *Draft) *int { return &d.Theme.UI.BorderWidth }),
+		borderWidth,
 		border("colors.border", "Border colour", func(d *Draft) *theme.Color { return &d.Theme.Colors.Border }),
 		border("colors.border_focus", "Border focus colour", func(d *Draft) *theme.Color { return &d.Theme.Colors.BorderFocus }),
 		px("ui.radius", "Radius", 64, func(d *Draft) *int { return &d.Theme.UI.Radius }),

@@ -56,6 +56,7 @@ level, so it is `.Colors.Primary`, not `.Theme.Colors.Primary`.
 | `.UI` | Radius, borders, gaps, padding, opacity, blur, shadows |
 | `.Fonts` | UI, mono and bar font families and sizes |
 | `.Icons`, `.Cursor`, `.GTK` | Icon theme and paths, cursor theme and size, toolkit hints |
+| `.Border` | The desktop's border: `.Width`, `.Color`, `.Focus`, `.Radius`, plus `.Focused` for the focused colour |
 | `.Theme` | The whole theme, including `.Theme.Name` and `.Theme.Description` |
 | `.Config` | The whole configuration, e.g. `.Config.Components.Waybar` |
 | `.Commands` | Programs from `[commands]` |
@@ -141,13 +142,30 @@ Pango markup, and `<` in a configuration file helps nobody.
 Sway colours and geometry:
 
 ```
-client.focused {{ .Colors.BorderFocus }} {{ .Colors.Surface }} {{ .Colors.Foreground }} {{ .Colors.Primary }} {{ .Colors.BorderFocus }}
+{{- $border := .Border }}
+client.focused {{ $border.Focus }} {{ .Colors.Surface }} {{ .Colors.Foreground }} {{ .Colors.Primary }} {{ $border.Focus }}
 
 gaps inner {{ .UI.GapsInner }}
-{{- if gt .UI.Radius 0 }}
-corner_radius {{ .UI.Radius }}
+{{- if gt $border.Radius 0 }}
+corner_radius {{ $border.Radius }}
 {{- end }}
 ```
+
+A surface the compositor does not decorate resolves its own override against
+that same border, which is the whole of what "one border, everywhere" means:
+
+```
+{{- $border := .Rofi.Border.Resolve .Border.Focused }}
+window {
+    border:        {{ $border.Width }}px;
+    border-color:  {{ $border.Color }};
+    border-radius: {{ $border.Radius }}px;
+}
+```
+
+`.Border.Focused` is the border in the colour a focused window gets. A
+launcher is the surface you are looking at, so it uses that; a notification is
+not, so it uses `.Border` as it stands.
 
 Waybar CSS, deriving a hover state rather than hardcoding one:
 

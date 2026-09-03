@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+
+	"github.com/dborovcanin/rice/internal/theme"
 )
 
 // Load reads config.toml on top of DefaultConfig, so a user file only has to
@@ -161,6 +163,26 @@ func (c Config) Validate() error {
 	}
 	if c.Foot.ScrollbackLines < 0 {
 		problems = append(problems, "foot.scrollback_lines is negative")
+	}
+
+	// A border can be turned off, which is theme.BorderNone; anything further
+	// below zero is a typo rather than a request.
+	for _, b := range []struct {
+		name   string
+		border Border
+	}{
+		{"waybar", c.Waybar.Border},
+		{"rofi", c.Rofi.Border},
+		{"dunst", c.Dunst.Border},
+	} {
+		if b.border.Width < theme.BorderNone {
+			problems = append(problems, fmt.Sprintf("%s.border.width %d is below %d, which is the value for no border",
+				b.name, b.border.Width, theme.BorderNone))
+		}
+		if b.border.Radius < theme.BorderNone {
+			problems = append(problems, fmt.Sprintf("%s.border.radius %d is below %d, which is the value for square corners",
+				b.name, b.border.Radius, theme.BorderNone))
+		}
 	}
 
 	if len(problems) == 0 {

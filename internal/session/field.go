@@ -166,9 +166,18 @@ func (f Field) Effective(d Draft) string {
 func (f Field) Inherited(d Draft) bool { return f.fallback != nil && !f.Explicit(d) }
 
 // Color returns the field's color, and false when the field is not a color.
+//
+// An unset override reports the color it follows, because the swatch sits
+// beside the value and the two disagreeing — a black swatch next to the
+// theme's colour — reads as a bug rather than as "this follows the theme".
 func (f Field) Color(d Draft) (theme.Color, bool) {
 	if f.Kind != KindColor {
 		return theme.Color{}, false
+	}
+	if f.Inherited(d) {
+		if c, err := theme.ParseColor(f.fallback(d)); err == nil {
+			return c, true
+		}
 	}
 	return *f.color(&d), true
 }
@@ -247,7 +256,7 @@ func (f Field) Nudge(src *Draft, resolved Draft, steps int) error {
 		return f.cycle(src, resolved, steps)
 
 	case KindColor:
-		c := *f.color(&resolved)
+		c, _ := f.Color(resolved)
 		amount := 0.05 * math.Abs(float64(steps))
 		if steps > 0 {
 			c = c.Lighten(amount)
@@ -262,7 +271,7 @@ func (f Field) Nudge(src *Draft, resolved Draft, steps int) error {
 		if step == 0 {
 			step = 1
 		}
-		next := f.clamp(float64(*f.num(&resolved)) + step*float64(steps))
+		next := f.clamp(float64(f.currentInt(resolved)) + step*float64(steps))
 		*f.num(src) = int(math.Round(next))
 		return nil
 
@@ -271,12 +280,35 @@ func (f Field) Nudge(src *Draft, resolved Draft, steps int) error {
 		if step == 0 {
 			step = 0.01
 		}
-		next := f.clamp(*f.frac(&resolved) + step*float64(steps))
+		next := f.clamp(f.currentFloat(resolved) + step*float64(steps))
 		// Re-round to the step so repeated nudges do not accumulate noise.
 		*f.frac(src) = math.Round(next/step) * step
 		return nil
 	}
 	return fmt.Errorf("%s: cannot be nudged", f.Key)
+}
+
+// currentInt and currentFloat are the number a nudge moves from: the value the
+// field holds, or the one the row is showing while the field follows something
+// else. An override holds zero until it is set, so stepping from what is
+// stored would jump away from what is on screen — down to the minimum, or up
+// from zero — rather than moving the value the user can see.
+func (f Field) currentInt(resolved Draft) int {
+	if f.Inherited(resolved) {
+		if n, err := strconv.Atoi(f.fallback(resolved)); err == nil {
+			return n
+		}
+	}
+	return *f.num(&resolved)
+}
+
+func (f Field) currentFloat(resolved Draft) float64 {
+	if f.Inherited(resolved) {
+		if v, err := strconv.ParseFloat(f.fallback(resolved), 64); err == nil {
+			return v
+		}
+	}
+	return *f.frac(&resolved)
 }
 
 // Explicit reports whether a source theme spells this field out. A field that

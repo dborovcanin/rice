@@ -68,7 +68,6 @@ func (t Theme) Validate() error {
 		value int
 	}{
 		{"ui.radius", t.UI.Radius},
-		{"ui.border_width", t.UI.BorderWidth},
 		{"ui.gaps_inner", t.UI.GapsInner},
 		{"ui.gaps_outer", t.UI.GapsOuter},
 		{"ui.padding", t.UI.Padding},
@@ -82,6 +81,14 @@ func (t Theme) Validate() error {
 		if n.value < 0 {
 			problems = append(problems, fmt.Sprintf("%s %d is negative", n.name, n.value))
 		}
+	}
+
+	// The border width is the one measurement that can be turned off rather
+	// than only made small, because zero already means "unset" and fills in
+	// the default.
+	if t.UI.BorderWidth < BorderNone {
+		problems = append(problems, fmt.Sprintf(
+			"ui.border_width %d is below %d, which is the value for no border", t.UI.BorderWidth, BorderNone))
 	}
 
 	if t.Fonts.UISize <= 0 {

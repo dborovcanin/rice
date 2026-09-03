@@ -123,7 +123,7 @@ look: the same radius reaches Sway's corners, Waybar's pills and Rofi's window.
 | Key | Type | Default | Reaches |
 | --- | --- | --- | --- |
 | `radius` | int | `0` | Sway `corner_radius`, Waybar pills, Rofi, Dunst |
-| `border_width` | int | `2` | Sway borders, Rofi border, Dunst frame |
+| `border_width` | int | `2` | Sway borders, Rofi border, Dunst frame, Waybar tooltip. `-1` draws none |
 | `gaps_inner` | int | `0` | Sway `gaps inner` |
 | `gaps_outer` | int | `0` | Sway `gaps outer` |
 | `padding` | int | `4` | Waybar, Rofi, Dunst padding |
@@ -137,6 +137,16 @@ look: the same radius reaches Sway's corners, Waybar's pills and Rofi's window.
 
 Fractions (`opacity`, `blur_noise`, `dim_inactive`) must be between 0 and 1;
 integers must not be negative.
+
+`border_width`, `radius` and the two border colours in `[colors]` are one
+border: the compositor draws it around every window, and the surfaces it does
+not decorate — the bar, the launcher, notifications — draw the same one
+themselves. An application can be given a border of its own in `config.toml`;
+see [configuration.md](configuration.md#borders).
+
+Zero is "unset" here, as it is everywhere in a theme file: `border_width = 0`
+asks for the default of 2 rather than for no border. A desktop with no border
+at all is `border_width = -1`, which every surface follows.
 
 `opacity` deliberately does not make every window translucent — it applies to
 the terminal background, the bar and notifications, where translucency reads

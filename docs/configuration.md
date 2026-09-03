@@ -250,6 +250,62 @@ Timeouts in seconds; `0` disables one.
 
 ---
 
+## Borders
+
+The desktop has one border: a width, a colour, a focused colour and a corner
+radius. It comes from the theme — `ui.border_width`, `ui.radius`,
+`colors.border` and `colors.border_focus` — and SwayFX draws it around every
+window.
+
+The surfaces the compositor does not decorate draw the same border themselves,
+so the bar, the launcher and notifications match the windows around them
+without being told about them twice. A theme switch moves all four together.
+
+An application that draws its own frame can be given a different one:
+
+```toml
+[rofi.border]
+width = 4
+color = "#d79921"
+radius = 16
+```
+
+`width`, `color` and `radius` are independent: whatever is left unset follows
+the desktop, so a theme switch still moves it. Zero and empty mean unset — as
+they do throughout the theme format — so zero is not how a border is removed:
+that is `-1`, which is a decision rather than an absence.
+
+```toml
+[rofi.border]
+width = -1   # no frame at all
+radius = -1  # square corners, however round the desktop is
+```
+
+The desktop itself works the same way: `ui.border_width = -1` in the theme
+leaves every window unbordered, and Sway is told `default_border none` rather
+than asked for a border zero pixels wide.
+
+`[waybar.border]`, `[rofi.border]` and `[dunst.border]` are the three that
+exist. There is no `[foot.border]`: a terminal is an ordinary window, SwayFX
+draws its border, its colour and its corner radius, and a setting here would
+change nothing. The rule is which surface does the drawing — a layer-shell
+surface has its own frame, a window has the compositor's.
+
+Where each one lands:
+
+| Section | Reaches |
+| --- | --- |
+| `[waybar.border]` | The tooltip frame and the corners of the modules and workspace pills |
+| `[rofi.border]` | The launcher's window frame and its inner corners |
+| `[dunst.border]` | The notification frame, its corners and the separator |
+
+Rofi and Waybar follow the focused colour, because they are surfaces you are
+looking at; Dunst follows the resting one, because a notification is something
+you glance at while looking elsewhere. Dunst's urgent frames keep their own
+colours either way: an urgent notification should not look like a quiet one.
+
+---
+
 ## `[waybar]`
 
 | Key | Type | Default |
@@ -261,6 +317,7 @@ Timeouts in seconds; `0` disables one.
 | `modules_left` | list | `["sway/workspaces", "sway/mode"]` |
 | `modules_center` | list | `["sway/window"]` |
 | `modules_right` | list | `["pulseaudio", "cpu", "memory", "disk", "battery", "clock", "tray"]` |
+| `border.width`, `border.color`, `border.radius` | int, colour, int | unset — follow the desktop's border |
 | `extra_css` | string | unset — appended to `style.css` |
 
 ### `[waybar.modules.<name>]`
@@ -294,6 +351,7 @@ Module colours come from the theme; only behaviour belongs here.
 | `font_family` | string | unset — falls back to the theme's interface font |
 | `font_size` | int | `0` — falls back to the theme's interface size |
 | `icon_size` | int | `0` — falls back to the theme's `icons.size` |
+| `border.width`, `border.color`, `border.radius` | int, colour, int | unset — follow the desktop's border |
 | `modes` | list | `["drun", "run", "window"]` |
 | `display_drun` | string | `"Run"` |
 | `extra` | string | Appended verbatim to `config.rasi`. |
@@ -347,6 +405,7 @@ Font, palette and background opacity come from the theme.
 | `max_icon_size` | int | `64` |
 | `font_family` | string | unset — falls back to the theme's interface font |
 | `font_size` | int | `0` — falls back to the theme's interface size |
+| `border.width`, `border.color`, `border.radius` | int, colour, int | unset — follow the desktop's border |
 | `extra` | string | Appended verbatim to `dunstrc`. |
 
 A notification is read from wherever you happen to be looking, in the seconds

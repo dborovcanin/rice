@@ -149,6 +149,18 @@ not, because the theme's author said what they wanted.
 `c` clears a value and hands it back to derivation. `r` puts back whatever the
 base theme had, which may itself be nothing.
 
+### Numbers
+
+`→` raises a number and `←` lowers it by that field's step: one pixel for most,
+two for an icon size, `0.01` for a fraction. Both move from the value on the
+screen, so nudging a setting that is following the theme starts from what it is
+following rather than from zero.
+
+Zero is what "unset" is spelled as, so arrowing an override down to zero hands
+it back to the theme rather than asking for a border no pixels wide. A border
+that should not be drawn at all is `-1`, and that is typed rather than arrowed
+to.
+
 ### Colors
 
 Type a hex value in any form `theme.Color` accepts: `#rgb`, `#rrggbb` or
@@ -182,7 +194,17 @@ to following the theme.
 
 These pick from the same lists as the global fields they override, because
 they hold the same kind of value: `rofi.font_family` offers the installed
-families, `rofi.icon_theme` the installed icon themes.
+families, `rofi.icon_theme` the installed icon themes. A colour override shows
+the swatch of the border it follows, not a black one.
+
+`-1` is how a border is removed rather than followed, under an application or
+in the SwayFX section: zero means "unset" and hands the value back to whatever
+fills it in.
+
+The border overrides — `border.width`, `border.color` and `border.radius` —
+appear only under the bar, the launcher and notifications. Those draw their own
+frame; every other window's border is drawn by SwayFX from the desktop's
+border, so there is nothing there for an application setting to change.
 
 ### Icon, cursor, GTK and Kvantum themes
 
@@ -240,18 +262,18 @@ where they are already comfortable to edit by hand.
 | Program | Settings |
 | --- | --- |
 | `sway` | None — the compositor is in the global SwayFX section. Preview and copy still work |
-| `waybar` | Position, layer, height, spacing |
-| `rofi` | Width, lines, columns, icons, drun label, and overrides for icon theme, font family and size, and icon size |
+| `waybar` | Position, layer, height, spacing, and border overrides |
+| `rofi` | Width, lines, columns, icons, drun label, and overrides for icon theme, font family and size, icon size and the border |
 | `foot` | **The 16 ANSI colours**, selection, cursor and URL, then server mode, shell, TERM, scrollback, padding, cursor style and blink |
+| `dunst` | Origin, size, offset, gap, follow, the three timeouts, max icon size, and overrides for font family and size and the border |
+| `swaylock` | Image and scaling, blur, indicator radius and thickness, failed attempts, clock |
+| `gtk` | Whether to write `settings.ini` and the palette stylesheet |
+| `qt` | Whether to write qt5ct, qt6ct and Kvantum, and the platform theme |
 
 The ANSI palette is under the terminal because that is what reads it. It is
 still part of the theme and saves to the theme file, so a second terminal
 emulator would show the same sixteen colours — there is one palette, not one
 per terminal.
-| `dunst` | Origin, size, offset, gap, follow, the three timeouts, max icon size, and overrides for font family and size |
-| `swaylock` | Image and scaling, blur, indicator radius and thickness, failed attempts, clock |
-| `gtk` | Whether to write `settings.ini` and the palette stylesheet |
-| `qt` | Whether to write qt5ct, qt6ct and Kvantum, and the platform theme |
 
 `gtk` and `qt` have no preview: they configure other people's applications
 rather than one of their own. Copy their generated files instead.

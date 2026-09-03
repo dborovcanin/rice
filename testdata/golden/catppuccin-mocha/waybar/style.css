@@ -12,6 +12,7 @@
 @define-color success #a6e3a1;
 @define-color warning #f9e2af;
 @define-color error #f38ba8;
+@define-color border #89b4fa;
 
 * {
   font-family: JetBrainsMono Nerd Font, monospace;
@@ -134,7 +135,7 @@ window#waybar.hidden {
 
 tooltip {
   background: @surface;
-  border: 2px solid @primary;
+  border: 2px solid @border;
   border-radius: 8px;
 }
 

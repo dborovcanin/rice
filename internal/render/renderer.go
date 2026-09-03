@@ -30,6 +30,11 @@ type Context struct {
 	Cursor   theme.Cursor
 	GTK      theme.GTK
 
+	// Border is the border the compositor draws: one width, one colour, one
+	// radius for the whole desktop. A surface SwayFX does not decorate draws
+	// its own frame, and resolves its override against this so the two match.
+	Border theme.Border
+
 	Config   config.Config
 	Commands config.Commands
 	Sway     config.Sway
@@ -55,6 +60,7 @@ func NewContext(cfg config.Config, th theme.Theme, generation int, version strin
 		Icons:    th.Icons,
 		Cursor:   th.Cursor,
 		GTK:      th.GTK,
+		Border:   th.Border(),
 
 		Config:   cfg,
 		Commands: cfg.Commands,

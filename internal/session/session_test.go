@@ -925,6 +925,142 @@ func TestRofiOverridesArePickable(t *testing.T) {
 	}
 }
 
+// A border override exists only where it can do anything. The bar, the
+// launcher and notifications draw their own frame; a terminal's is drawn by
+// SwayFX, from the desktop's border, so a setting under the terminal would
+// change nothing.
+func TestBorderOverridesOnlyExistWhereTheAppDrawsItsOwn(t *testing.T) {
+	has := func(component string) bool {
+		for _, f := range session.ProgramFields(component) {
+			if strings.HasSuffix(f.Key, ".border.width") {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, component := range []string{"waybar", "rofi", "dunst"} {
+		if !has(component) {
+			t.Errorf("%s draws its own frame and should be able to override the border", component)
+		}
+		if !config.SelfDecorated(component) {
+			t.Errorf("%s should be self-decorated", component)
+		}
+	}
+	for _, component := range []string{"sway", "foot", "swaylock", "gtk", "qt"} {
+		if has(component) {
+			t.Errorf("%s is decorated by SwayFX; its own border setting would be a no-op", component)
+		}
+		if config.SelfDecorated(component) {
+			t.Errorf("%s should not be self-decorated", component)
+		}
+	}
+}
+
+// An unset border override follows the desktop's border and says so, and the
+// launcher follows the focused colour because that is what it renders with.
+func TestBorderOverridesFollowTheDesktopUntilSet(t *testing.T) {
+	s, _, _ := newSession(t)
+	wm := s.Theme().Border()
+
+	cases := []struct{ key, want string }{
+		{"rofi.border.width", strconv.Itoa(wm.Width)},
+		{"rofi.border.color", wm.Focus.String()},
+		{"rofi.border.radius", strconv.Itoa(wm.Radius)},
+		{"dunst.border.color", wm.Color.String()},
+	}
+	for _, c := range cases {
+		if !s.Inherited(c.key) {
+			t.Errorf("%s should start following the desktop's border", c.key)
+		}
+		if got := s.Effective(c.key); got != c.want {
+			t.Errorf("%s shows %q, want %q", c.key, got, c.want)
+		}
+	}
+
+	// The swatch agrees with the value beside it rather than showing black.
+	if c, ok := s.Color("rofi.border.color"); !ok || c != wm.Focus {
+		t.Errorf("rofi.border.color swatch = %v, want the border it follows %v", c, wm.Focus)
+	}
+
+	if err := s.Set("rofi.border.width", "6"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if s.Inherited("rofi.border.width") || s.Config().Rofi.Border.Width != 6 {
+		t.Error("a set border width should be the launcher's own")
+	}
+	if err := s.Clear("rofi.border.width"); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if !s.Inherited("rofi.border.width") {
+		t.Error("clearing should return the launcher to the desktop's border")
+	}
+}
+
+// Arrows move the number that is on the screen. An override holds zero until
+// it is set, so nudging what is stored would step away from the row's value:
+// down to the minimum, and up from one rather than from what is shown.
+func TestNudgingAnUnsetOverrideMovesFromTheValueOnScreen(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	for _, key := range []string{"rofi.border.radius", "rofi.font_size", "rofi.icon_size", "dunst.font_size"} {
+		f, ok := session.LookupField(key)
+		if !ok {
+			t.Fatalf("no field %q", key)
+		}
+		step := int(f.Step)
+
+		shown, err := strconv.Atoi(s.Effective(key))
+		if err != nil {
+			t.Fatalf("%s: %v", key, err)
+		}
+
+		if err := s.Nudge(key, 1); err != nil {
+			t.Fatalf("nudge: %v", err)
+		}
+		if got := s.Effective(key); got != strconv.Itoa(shown+step) {
+			t.Errorf("%s up = %q, want one step above the %d on screen", key, got, shown)
+		}
+
+		if err := s.Clear(key); err != nil {
+			t.Fatalf("clear: %v", err)
+		}
+		if err := s.Nudge(key, -1); err != nil {
+			t.Fatalf("nudge: %v", err)
+		}
+		if got := s.Effective(key); got != strconv.Itoa(shown-step) {
+			t.Errorf("%s down = %q, want one step below the %d on screen", key, got, shown)
+		}
+	}
+}
+
+// Zero means "follow the desktop", so turning a border off needs a value of
+// its own.
+func TestABorderCanBeTurnedOff(t *testing.T) {
+	s, _, _ := newSession(t)
+
+	if err := s.Set("rofi.border.width", "-1"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if s.Inherited("rofi.border.width") {
+		t.Error("no border is a decision, not following the desktop")
+	}
+	if got := s.Config().Rofi.Border.Resolve(s.Theme().Border()).Width; got != 0 {
+		t.Errorf("resolved width = %d, want none drawn", got)
+	}
+	if err := s.Set("rofi.border.width", "-2"); err == nil {
+		t.Error("-2 is a typo, not a border")
+	}
+
+	// The whole desktop can lose its border the same way.
+	if err := s.Set("ui.border_width", "-1"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if got := s.Theme().Border().Width; got != 0 {
+		t.Errorf("desktop border width = %d, want none drawn", got)
+	}
+}
+
 // Border colour sits with border width, because that is where you are thinking
 // about borders — but it is still a theme value and still saves to the theme.
 func TestBorderColoursAreInTheSwayFXSection(t *testing.T) {

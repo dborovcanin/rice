@@ -34,7 +34,7 @@ window {
     anchor:           center;
     fullscreen:       false;
     border:           2px;
-    border-color:     @primary;
+    border-color:     #1e66f5;
     border-radius:    8px;
     background-color: @background;
     cursor:           "default";
